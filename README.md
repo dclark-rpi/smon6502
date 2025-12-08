@@ -80,9 +80,15 @@ The column on the right shows the (printable) ASCII characters corresponding to 
 
 If your terminal supports the VT100 cursor movement sequences, you can **modify** the memory
 content by just moving the cursor into the displayed lines, editing data and pressing ENTER
-on each line where data was modified. If your terminal does not support cursor keys you can
-modify memory by typing (for example) `:1015 AA BB` and pressing ENTER. The example here will 
-set $1015 to AA and $1016 to BB.
+on each line where data was modified. 
+
+If your terminal does not support cursor keys you can
+modify memory by typing (for example) 
+
+'''
+:1015 AA BB
+'''
+and pressing ENTER. The example here will set $1015 to AA and $1016 to BB.
 
 If you supply only one argument to the "m" command, SMON will show the memory content line-by-line,
 stopping after each line. Press SPACE to advance to the next line, ESC to go back to the command prompt
@@ -226,10 +232,14 @@ Note that this is more of a toy example since only very simple BASIC programs wi
 
 ## Credits
 
-The SMON machine language monitor was originally published in three parts in the 
+The SMON machine language monitor was originally published in four parts in the 
 [November](https://archive.org/details/64er_1984_11/page/n59/mode/2up)
 / [December](https://archive.org/details/64er_1984_12/page/n59/mode/2up)
 / [January](https://archive.org/details/64er_1985_01/page/n68/mode/2up)
+/ [February](https://archive.org/details/64er_1985_02/page/72/mode/2up)
+
+Bug fixes for the original SMON was published in [December 1985](https://archive.org/details/64er_1985_12/page/100/mode/2up) Tricks and Tips for SMON article, which included some new additions.
+
 1984/85 issues of German magazine "[64er](https://www.c64-wiki.com/wiki/64%27er)".
 
 SMON was written for the Commodore 64 by Norfried Mann and Dietrich Weineck.
