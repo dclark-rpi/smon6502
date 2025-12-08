@@ -25,6 +25,8 @@ The best description of SMON's commands and capabilities is the article in the
 64'er magazine (in German) [available here](https://archive.org/details/64er_sonderheft_1985_08/page/n121/mode/2up).
 For English speakers, C64Wiki has a brief [overview of SMON commands](https://www.c64-wiki.com/wiki/SMON).
 
+I've included both an English and German transcript in plain text of the original 4 part article in the Docs folder.
+
 ## SMON for 6502
 
 The version published here is an adaptation of SMON for a simple MOS6502-based 
