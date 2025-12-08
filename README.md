@@ -85,9 +85,11 @@ on each line where data was modified.
 If your terminal does not support cursor keys you can
 modify memory by typing (for example) 
 
-'''
+```
+
 :1015 AA BB
-'''
+
+```
 and pressing ENTER. The example here will set $1015 to AA and $1016 to BB.
 
 If you supply only one argument to the "m" command, SMON will show the memory content line-by-line,
