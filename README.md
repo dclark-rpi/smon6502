@@ -232,13 +232,13 @@ Note that this is more of a toy example since only very simple BASIC programs wi
 
 ## Credits
 
-The SMON machine language monitor was originally published in four parts in the 
-[November](https://archive.org/details/64er_1984_11/page/n59/mode/2up)
-/ [December](https://archive.org/details/64er_1984_12/page/n59/mode/2up)
-/ [January](https://archive.org/details/64er_1985_01/page/n68/mode/2up)
-/ [February](https://archive.org/details/64er_1985_02/page/72/mode/2up)
+The SMON machine language monitor was originally published in a four part article in the following issues, 
+[November 1984](https://archive.org/details/64er_1984_11/page/n59/mode/2up)
+/ [December 1984](https://archive.org/details/64er_1984_12/page/n59/mode/2up)
+/ [January 1985](https://archive.org/details/64er_1985_01/page/n68/mode/2up) 
+/[February 1985](https://archive.org/details/64er_1985_02/page/72/mode/2up).
 
-The 64'er published "Machine Language Assembly for Beginners and Advanced Users" containing a full manual and assembler source for SMON Complete in [August 1985](https://archive.org/details/64er_sonderheft_1985_08/page/n121/mode/2up)
+The 64'er Magazine published "Machine Language Assembly for Beginners and Advanced Users" containing a full manual and assembler source for SMON Complete in [August 1985](https://archive.org/details/64er_sonderheft_1985_08/page/n121/mode/2up)
 
 Bug fixes for the original SMON was published in [December 1985](https://archive.org/details/64er_1985_12/page/100/mode/2up) Tricks and Tips for SMON article, which included some new additions.
 
