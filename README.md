@@ -1,6 +1,6 @@
 # SMON
 
-Modified to run on the [pico 6502](https://github.com/picocomputer/rp6502)
+Modified to run on the [RP6502 Picocomputer](https://github.com/picocomputer/rp6502)
 
 This repo modifies the original by adding RIA support instead of a UART.
 Also the location of the jump table is labelled and used so as not to create a larger binary.
@@ -86,9 +86,7 @@ If your terminal does not support cursor keys you can
 modify memory by typing (for example) 
 
 ```
-
 :1015 AA BB
-
 ```
 and pressing ENTER. The example here will set $1015 to AA and $1016 to BB.
 
@@ -239,6 +237,8 @@ The SMON machine language monitor was originally published in four parts in the
 / [December](https://archive.org/details/64er_1984_12/page/n59/mode/2up)
 / [January](https://archive.org/details/64er_1985_01/page/n68/mode/2up)
 / [February](https://archive.org/details/64er_1985_02/page/72/mode/2up)
+
+The 64'er published "Machine Language Assembly for Beginners and Advanced Users" containing a full manual and assembler source for SMON Complete in [August 1985](https://archive.org/details/64er_sonderheft_1985_08/page/n121/mode/2up)
 
 Bug fixes for the original SMON was published in [December 1985](https://archive.org/details/64er_1985_12/page/100/mode/2up) Tricks and Tips for SMON article, which included some new additions.
 
