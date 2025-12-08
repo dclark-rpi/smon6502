@@ -1,0 +1,263 @@
+You can't do without the right tools:
+
+SMON, Part 3
+
+The machine language monitor is slowly nearing completion. In this part, we'll introduce three interesting commands that are especially helpful for debugging.
+
+You probably wondered last time how it's possible to fit so many new commands into such a small program. The SMON concept is to blame. In the first part, we already included all the input and output routines. All extensions can now build upon this foundation and will therefore be shorter. We even kept one command from you that was already present last time. Perhaps you accidentally typed "B" once, and SMON responded with a question mark, indicating that it understands what "B" means.
+
+In today's Part 3 of our SMON series, we'd like to introduce you to three more commands: BASIC-DATA, CONTROL, and FIND. This time there are only three new commands, not because we want to keep you in suspense for the next article about "SMON", but because we believe that such a comprehensive command as "FIND" needs a lot of examples to be understood.
+
+BASIC DATA
+
+B (Start Address End Address) converts the machine program from start address to end address-1 into BASIC DATA lines.
+
+B 4000 4020
+
+Our test program (you remember our
+little program from 11/84?) is converted into DATA values ​​and then stored in BASIC memory starting with line number 32000. A BASIC program already in memory (for example, a BASIC loader) with lower line numbers can then use these DATA lines.
+
+Once you have converted the test program as described above, exit SMON with "X" and verify its execution with "LIST". Then you can enter
+the following:
+
+10 FOR I=16384 TO 16415 : READ D : POKE I,D : NEXT
+
+In conjunction with the DATA lines generated above (and RUN!), you would have the original machine program back in memory. If you want to run this example, please remember that after creating the DATA, you should overwrite the original program, for example with OCCUPY (O 4000 4020 AA), so that you can verify correct execution. The BRK instruction at the end of the test program causes a jump back to SMON. If you want to start a machine program from BASIC and also return to it, the last instruction must be an RTS. Try it out by extending the BASIC program with 20 SYS 16384.
+
+CONTROL
+
+K (Start Address End Address) lists the ASCII characters in the selected range. 32 characters are output per line, allowing you to quickly get an overview of texts or tables.
+
+Example:
+
+K 4000 lists the first 32 characters of our program. Further output is possible, just like during disassembly, by pressing SPACE or RETURN. Here, too, as with the other screen output commands, you can make changes by simply overwriting the output (of course, not in ROM and only with ASCII characters!).
+
+As an example, let's "tinker" with BASIC: This isn't so easy, of course, because BASIC is in ROM and therefore cannot be modified. Please type the following:
+
+W A000 C000 A000
+
+At first glance, this seems like a nonsensical instruction; the memory should be moved from A000 to C000 to A000. This command is exactly the same as the BASIC loop:
+
+FOR I = 40960 TO 49152 : POKE I, PEEK (I) : NEXT
+
+However, PEEK reads from ROM, while POKE writes to the underlying RAM. So, we're copying the BASIC code into RAM. Now we need to ensure that the operating system retrieves its BASIC code from RAM and not from ROM. Memory location 0001 is responsible for this. Please enter "M 0001" and overwrite "37" with "36".
+
+Nothing happens. Now our K command comes into play.
+
+Enter: K A100 A360
+What you see are the BASIC command words and messages. Switch to lowercase using SHIFT/CBM, and you'll see that the last letter of each command word is capitalized (end-of-command marker). Now, by overwriting the existing entries, change "LIST" (A100) to "LUST" and "ERROR" (A360) to "Faults". (When changing "Faults", you must start with a character before "ERROR", otherwise it won't work.)
+
+
+-: Page 1 :-
+
+
+Exit SMON now with "X" and then enter: POKE 1.54
+
+SMON always reverts to the BASIC ROM with the "X" command, so we need to switch back to our modified BASIC. Now write a three-line BASIC command and try to LIST it. Result? Now try "LUST". The possibilities are endless...
+
+As mentioned above, SMON provides a number of different search routines, which are described below with many examples. All of these commands consist of two characters and begin with the letter "Fe".
+
+FIND
+
+F (HEX VALUE(s), start address, end address) searches for individual HEX values ​​within a specific range. The second character (after F) is a space and must not be omitted! As with all subsequent commands, the range can be omitted, in which case the entire memory is searched.
+
+Example: We search for all LDY #01 instructions, i.e., the values ​​A0 01 in the range from $2000 to $6000.
+
+F A0 01, 2000 6000 (The spaces between the hexadecimal bytes must not be omitted!). All memory locations containing the searched bytes will be displayed, for example, 4000.
+
+FA (address, start address, end address) searches for all instructions that have a specific address as an operand (absolute). The address does not need to be specified in full; the wildcard character "•" can be used.
+
+Example 1: We search for all JSR FFD2 instructions in the range
+
+$2000 to $6000
+FAFFD2,2000 6000
+
+All disassembled instructions containing FFD2 in the operand will be displayed (including LDA FFD2 or STA FFD2,Y...).
+
+Example 2: We search for all instructions that access the graphics area ($D000 to $DFFF).
+
+FAD***,2000 6000
+
+The wildcard can also be used, for example, to search in the range $D000 to $D0FF:
+
+FAD0** ,2000 6000
+
+FR (address, start address, end address) searches for relative branch targets. Unlike absolute branches (JMP, JSR), branch instructions use relative addressing, such as "branch 10 forward" or "37 back". Such branches cannot be found with the FA command. Here, "FR" is used.
+
+Example: We search for all branch instructions that jump to address $4002.
+
+FR 4002,2000 6000
+
+Of course, such instructions can only be at most 128 bytes away from the branch target. The range specified here is much too large (SMON isn't bothered by this, however). Using the wildcard is possible here as described above.
+
+FT (start address end address) searches for tables within the specified range. SMON treats anything that cannot be disassembled as a table.
+
+Example: We search for tables or text in the range $2000 to $6000.
+
+FT 2000 6000
+
+FZ(address, start address end address) searches for all instructions that have zero-page addresses.
+
+Example 1: FZC5,2000 6000 finds all instructions that address C5, for example, BIT $C5, LDA (C5), Y, etc.
+
+Example 2: FZF*,2000 6000 finds all instructions that address the range between $F0 and $FF.
+
+Example 3: FZ**,2000 6000 finds all commands with zero-page addressing.
+
+FI (operand, start address, end address) searches for all commands with immediate addressing.
+
+Example: To search for commands that load the Y register with 01, for example, FI01,2000 6000 finds LDY #01 at address $4000.
+
+As you can see, SMON offers a wealth of diverse FIND routines that can search for and find (!) almost anything. To give you practice, we're holding a big competition where you can at least gain some experience! Here are the tasks to complete:
+
+1. How many times does SMON jump to the operating system ($E000 - $FFFF)?
+
+2. Which zero-page addresses does SMON use?
+
+3. Where is the background colour ($D021) and the text colour ($0286) set?
+
+4. Where are the tables located in SMON?
+
+5. In some places, there are instructions that load the registers directly with the high byte of the
+
+SMON memory area (decimal 49152 - 52208). Calculate the hexadecimal values ​​and
+
+find the memory locations.
+
+6. In two places, there are five consecutive zeros. Where? Please write your solution
+
+on a piece of paper and discard it. Legal recourse is excluded...
+
+One step closer to the solution...
+
+You won't be released today without us giving you some tips for writing your own assembly programs. Do you remember the 16-bit comparison we discussed in the last issue? In SMON, for example, this is used to determine whether a program segment should continue to run or whether the end has been reached. SMON checks this for almost all instructions; the FIND commands are a recent example. As a reminder, we wanted to compare two 16-bit numbers, but the processor can only handle 8-bit numbers.
+
+For this, we need an incrementing counter (in our example, it's called the "program counter" PC and consists of the high byte PCH and the low byte PCL) and an end pointer (ENDHI and ENDLO). Our program for this looked like this:
+
+LDA PCL
+CMP ENDLO
+LDA PCH
+SBC ENDHI
+
+We then checked the Carry flag and found that it was already set when both addresses matched. In our case, terminating the program section with "BCS END" would result in the last instruction still to be executed being "suppressed." To find a way out of this dilemma, let's take a closer look at the behaviour of the zero and carry flags in the status register, specifically in relation to the program counter (PC) and the end pointer.
+
+As you can see in Listing 1, we write the program counter (PCL/PCH) to $FB/$FC and the end pointer (ENDLO/ENDHI) to $FD/$FE. Then we call the routine that checks for the end pointer in SMON (CMPEND in $C466). Finally, the BRK instruction ensures that we return to SMON. Examine the corresponding routine in SMON with "D C466." You will see that it performs the 16-bit comparison mentioned above.
+
+
+-: Page 2 :-
+
+
+Save this program now with "S "CMP-TEST" 4100 4112" and start it with "G 4100". After the program has finished running, it will display the register information. Pay particular attention to the status control indicator on the right; we are interested in the values ​​for Z and C (Zero and Carry flags).
+
+Table Start:-
+
+Please type the following program once (using "A 4100"):
+
+4100 	LDA		#00
+4102 	STA		FB		(=PCL)
+4104 	STA		FD		(=ENDLO)
+4106 	LDA		#C0
+4108 	STA		FC		(=PCH)
+410A 	LDA		#C1
+410C 	STA		FE		(=ENDHI)
+410E 	JSR 	C466	(=CMPEND)
+4111	BRK
+
+Listing 1.
+
+-:Table End
+
+We want to find out what happens when the program counter (PC) is less than, equal to, or greater than END. If you now insert the value C1 for PCH into memory location $4106, you can repeat the process and note the flag changes. Then insert C2 for PCH into $4106. Type »D 4100 4112«, move the cursor to line 4106 and overwrite the value #CO with the new value #C1 or #C2.
+
+Table Start:-
+
+---------------------------------------
+		PC<END	PC=END	PC>END
+---------------------------------------
+PC	FC/FB	C0/00	C1/00	C2/00
+END	FE/FD	C1/00	C1/00	C1/00
+---------------------------------------
+		ZC	ZC	ZC		
+		00	11	01		
+---------------------------------------
+
+-:Table End
+
+This is how your table should look in the end. In the first case (PC is less than END), the carry flag is cleared. Then (PC equals END), the Z and C flags are set, and finally, only the C flag is 1. Now we can react as desired and branch using the branch commands. Use the disassembler to examine other routines in SMON as well.
+
+Notes on Typing
+
+From numerous phone calls, we've realised that the previous DATA loader often didn't pinpoint the sources of errors precisely enough. With this loader, you shouldn't have any more difficulties typing. Afterward, you should definitely save the loader program to disk or cassette. After typing RUN, the loader must run until READY. To connect the new part to SMON, you now need to load the SMON from last time with ",8,1" and start it with SYS 49152. Now you can save the entire program up to this point with
+
+S "SMON $C000" C000 CBF1
+
+Of course, floppy disk users will need to insert a different disk or delete the old SMON program after loading it (!). And until next time: Practice, practice, practice!
+
+(N. Mann/D. Weineck/gk)
+
+Table Start:-
+
+Listing 2 The third part of SMON as a basic loader
+
+1 REM *********************************		<250>
+2 REM *     ++++ SMON PART 3 ++++     *		<219>
+3 REM *                               *		<230>
+4 REM *  BY N. MANN AND D. WEINECK    *		<223>
+5 REM *  FLEETRADE 40, 2800 BREMEN 1  *		<184>
+6 REM *  TEL: 0421 / 493090           *		<055>
+7 REM *       0421 / 231401           *		<011>
+8 REM *********************************		<001>
+9 :						<067>
+10 DIM H(75) : FOR I=0 TO 9			<088>
+20 H(48+1)=I : H(65+I)=I+10 : NEXT		<250>
+30 FOR I=51895 TO 5220B:READ A$			<113>
+40 H=ASC(LEFT$(A$,1)):L=ASC(RIGHT$(A$,1))	<063>
+50 D=H(H)*16+H(L) : S=S+D : POKE I,D		<181>
+60 A=A+I:IF A< B THEN NEXT : A=-1		<110>
+65 PRINT "LINE:";1000+Z;			<012>
+70 READ V : Z=Z+1 : IF V=S THEN 85		<210>
+80 PRINT"CHECKSUM ERROR!";999+Z:STOP		<015>
+85 IF A<0 THEN END				<043>
+90 S=0 : A=0 : PRINT : NEXT : END		<053>
+98 :						<156>
+99 :						<157>
+1000 DATA 20,64,C2,A2,27,20,40,C3, 818		<200>
+1001 DATA 20,23,C3,A0,08,A2,00,20, 624		<182>
+1002 DATA 4C,C3,A1,FB,20,39,C4,D0, 1176		<063>
+1003 DATA F9,A2,00,20,5D,C4,F0,03, 975		<243>
+1004 DATA 4C,BA,CA,60,20,7E,C2,A0, 1072		<068>
+1005 DATA 03,20,CF,FF,88,D0,FA,20, 1123		<065>
+1006 DATA CA,C2,C9,2E,F0,02,91,FB, 1281		<086>
+1007 DATA C8,C0,20,90,F2,60,20,7A, 1060		<013>
+1008 DATA C2,A2,00,A1,FB,C1,FD,D0, 1422		<083>
+1009 DATA 0B,20,67,C3,E6,FD,D0,F3, 1275		<079>
+1010 DATA E6,FE,D0,EF,20,4C,C3,4C, 1310		<104>
+1011 DATA 23,C3,A9,FF,A2,04,95,FA, 1219		<083>
+1012 DATA CA,D0,FB,20,CA,C2,A2,05, 1256		<091>
+1013 DATA DD,6E,C0,F0,45,CA,D0,FB, 1490		<116>
+1014 DATA 86,A9,20,B4,CB,EB,20,CF, 1189		<092>
+1015 DATA FF,C9,20,F0,F3,C9,2C,D0, 1424		<102>
+1016 DATA 03,20,7A,C2,20,51,C3,A4, 823		<224>
+1017 DATA A9,B1,FB,20,D6,CB,D0,18, 1278		<100>
+1018 DATA 88,10,F6,20,23,C3,20,4C, 768		<232>
+1019 DATA C3,A4,D3,C0,24,90,09,20, 983		<244>
+1020 DATA 94,C4,20,72,C4,20,51,C3, 994		<236>
+1021 DATA 20,63,C4,90,DA,A0,27,4C, 964		<007>
+1022 DATA 96,C4,BD,73,C0,85,A8,BD, 1332		<098>
+1023 DATA 78,C0,85,A9,AA,F0,06,20, 1062		<055>
+1024 DATA 84,CB,CA,D0,FA,20,7A,C2, 1391		<126>
+1025 DATA 20,CB,C4,20,2C,C5,A5,A8, 1037		<079>
+1026 DATA 24,AB,D0,09,A8,D0,21,A5, 998		<031>
+1027 DATA AD,D0,1D,F0,0D,A4,A9,B9, 1181		<119>
+1028 DATA AD,00,20,D6,CB,D0,11,88, 983		<027>
+1029 DATA D0,F5,84,AA,20,8C,C5,20, 1156		<077>
+1030 DATA 6F,C4,20,66,C4,90,D1,60, 1086		<056>
+1031 DATA 20,6A,C6,F0,F5,20,C0,CB, 1248		<090>
+1032 DATA 9D,CC,03,BD,3C,03,9D,6C, 881		<075>
+1033 DATA 03,20,CA,C2,A0,0F,C9,2A, 849		<041>
+1034 DATA D0,02,A0,00,20,AF,C2,9D, 928		<022>
+1035 DATA 3C,03,98,9D,9C,03,60,85, 760		<008>
+1036 DATA B4,4A,4A,4A,4A,59,6C,03, 676		<042>
+1037 DATA 39,CC,03,29,0F,D0,0A,A5, 703		<031>
+1038 DATA B4,59,3C,03,39,9C,03,29, 589		<014>
+1039 DATA 0F,60, 111				<093>

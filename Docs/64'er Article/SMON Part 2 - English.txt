@@ -1,0 +1,331 @@
+
+Without the right tools, it's impossible: SMON Part 2
+
+The machine language monitor SMON is becoming increasingly powerful. This second part expands its capabilities with important output routines, allows program relocation with and without address conversion, and enables conversion between decimal and binary numbers.
+
+We hope we didn't overwhelm you in the last issue and that your sore fingers have recovered by now. You've certainly been working diligently with the new monitor over the past month and are now familiar with the existing commands. Now comes the second part, which naturally includes several new commands that need explaining.
+
+Here's what we'll be covering today:
+I/O-SET, LOAD, SAVE, PRINTER-SET, the various number conversions (HEX-DEC-BIN-ADD-SUB), OCCUPY, CONVERT, MOVE, and WRITE.
+
+
+We hope we didn't overwhelm you with too much in the last issue and that your sore fingers have recovered by now. I/O SET
+
+I 01 sets the device number for LOAD and SAVE to 1 (cassette). All loading and saving operations will now be performed on the specified device. The default device number is 8 (for floppy disks: I 08). Therefore, if you are only working with floppy disks, you do not need this command.
+
+LOAD
+L "Name" loads a program from the specified device (as described above) into memory at its original address. The BASIC pointers remain unaffected during this loading process; that is, they are not modified.
+
+Example: Our monitor should be located at its original address ($C000) in memory. Therefore, you only need to load it with "L "SMON"" to make it appear there. If you ever want to load a program to a different address than its original one, SMON offers the following option: 'L "Name" ADDRESS' loads a program to the specified address. Please take our last test program again and enter it using the assembler starting at address $4000. Save it with "'S "SUPERTEST" 4000 4023" and then load it
+
+1. to the original address (L "SUPERTEST") and
+
+
+-: Page 1 :-
+
+
+2. To a different address (for example, to $5000 using L "SUPERTEST"5000).
+
+Then, use the disassembler command to examine both routines. You will find that while both programs look identical except for the BRANCH instructions, the program at $5000 cannot function because it uses an incorrect address (5002 LDA 400E,Y). Another example: An autostart program begins at $0120, but cannot be examined in this area because it contains the processor stack (in the range of $0100 to $01FF), which is constantly modified by the processor itself. If you now enter L "Name" 4120, the program will subsequently be located at $4120 (not at the original address $0120), and you can disassemble it without any limitations—apart from the incorrect absolute addresses.
+
+
+SAVE
+
+S "Name", start address end address saves a program from start address to end address-1 under "Name" on the floppy disk, since this is the default device, as we now know. If you want to save to cassette, first set the device number to 1 with "I 01".
+
+Example: S"SUPERTEST"4000 4020 saves the program named "SUPERTEST" (it is located in memory from $4000 to $401F) to a floppy disk. Please note that with this command, the end address is also set to the next byte after the program.
+
+PRINTER-SET
+P 02 sets the primary address for the printer to 2. The default device number here is 4 (for example, for Commodore printers). You may have already noticed: With all output commands (such as D, M, etc.), you can also address the printer if you enter the command with a shift key. The output is then displayed simultaneously on screen and printer. (Please note the change for printer output at the end of the article.)
+
+A little bit of calculation
+
+The following command group contains commands for number conversion. As you know, humans with their ten fingers tend to prefer the decimal system, but computers
+prefer the binary system because they only have two fingers (see power plug). A compromise is the hexadecimal system, since neither understands it. To avoid any communication difficulties with your computer, you have SMON.
+
+DEC-HEX CONVERSION
+
+# (decimal number) converts the decimal number to its corresponding hexadecimal number. You can enter the value in any way you like, as SMON converts numbers up to 65535. Example: #12, #144, #3456, #65533, and so on.
+
+HEX-DEC CONVERSION
+
+$ (hexadecimal number) converts the hexadecimal number to its corresponding decimal number. The input must be two or four digits. If this number is less than $100 (=255), the binary value is also displayed.
+
+Example: $12, $0012, $0D, $FFD2, etc. In the first three examples, the value is also displayed in binary form.
+
+BINARY - HEX, DEC CONVERSION
+
+% (Binary number (eight digits)) converts the binary number into the corresponding hexadecimal and decimal numbers. This command requires exactly eight binary digits. If you accidentally enter more, only the first eight will be used for the conversion. Example: %00011111, %10101011
+
+ADD-SUB
+
+? 2340+156D calculates the sum of the two four-digit hexadecimal numbers. Subtraction is also possible.
+
+Programs on the marshalling yard
+
+OCCUPY (Occupy)
+
+O (startaddressold endaddressold HEXvalue) fills the specified area with the given HEX value. Example: O 5000 8000 00 fills the range from $5000 to $7FFF with zeros.
+
+However, you can use "OCCUPY" not only to clear memory areas but also to fill them with arbitrary values. Often, you encounter the problem of determining which memory location is actually used by a program. We then first fill the
+relevant area with, for example, "AA" and then load our program. Please try the following example: Fill the memory range from $3000 to $6000 with $AA, and then load our SUPERTEST program. When disassembling, you can see that our small program is embedded precisely between many AAs.
+
+WRITE
+
+W (startaddressold endaddressold startaddressnew) moves the memory range from startaddressold to endaddressold to startaddressnew without converting the addresses! Let's look at our small test program again as an example: W 4000 4020 6000 moves the program mentioned above from $4000 to $6000.
+
+In this process, neither the absolute addresses are converted nor the tables are modified. The latter is certainly desirable, but keep in mind that the moved program will no longer run because the absolute addresses are no longer correct (for example, with the LDA 400E,Y instruction). If you now enter "G6000" to start the program, you will certainly be surprised that it still runs. But try deleting the program in $4000 (with "O4000 4100 AA") and then running the program again in $6000! Strange, isn't it? The next command will solve this.
+
+VARIATION
+
+V (startaddressold endaddressold startaddressnew startaddress endaddress) converts all absolute addresses in the range from startaddress to endaddress that refer to startaddressnew. Complicated? Not if you realise that the first three addresses correspond exactly to the inputs in the "W" command. Only the two new addresses for the range where the change actually occurs are added.
+
+To make our program, which was already moved with "W", run again, enter the following: V 4000
+
+
+-: Page 2 :-
+
+
+4020 6000 6000 600E. This converts all absolute addresses in the range $6000 to $600E (the table is listed after this) that previously referred to $4000 to $4020 to the new range. As always, practice is better than theory.
+
+A summary of these two commands enables:
+
+CONVERT (moving a program with address conversion)
+
+C (startaddressold endaddressold startaddressnew startaddress endaddress) moves the program from startaddressold to endaddressold to startaddressnew, converting the addresses between startaddress and endaddress.
+
+Our small test program demonstrates how to use this command. Load it with "L"SUPERTEST"" and view it with "D 4000". Now we want to insert a 3-byte instruction at address $4008: C 4008 4020 400B 4000 4011 moves the program from $4008 to $4020 to the new start address $400B. In the process, the jump addresses are converted in the range from $4000 to $4011 (the new end address of the "active" program!). Now you can insert a 3-byte instruction starting at address $4008, for example, STY 0286. To do this, please enter:
+
+A 4008
+4008 STY 0286
+F
+
+Verify that SMON has correctly converted the instructions by disassembling our example (D 4000) and then starting it with G 4000. Owners of colour monitors will be delighted. Caution is advised if tables or text are present. SMON will attempt to disassemble these as instructions and convert them if necessary. This can lead to unpredictable errors. For this reason, the end address of the area to be modified in the example is set to $4011 and not $4023. If you have larger programs to move, you should use the W and V commands, or an assembler that allows you to make arbitrary insertions, moves, and other modifications. The C command is primarily suitable for making minor changes within a program.
+
+A Look Behind the Scenes
+
+As before, let's take a brief look at the program. We've selected two frequently used program sections. After successfully entering the new DATA, if you list the "LOAD-SAVE" routine using "D C84F", you'll see that it takes up very little space. The secret to this limitation lies in the fact that we've used operating system routines. More on that later; first, here's the routine from the beginning:
+
+Table Start:-
+
+LOADSAVE 	LDY #$02 
+		STY *$BC
+		DEY
+		STY *$B9
+		STY *$BB 
+		DEY
+		STY *$B7
+			
+-:Table End
+
+The memory locations $BB/$BC now contain the address $0201, which is the beginning of the BASIC input buffer. $B9 contains the value 01, meaning that the secondary address is preset for absolute loading. Memory location $B7 contains the length of the filename, initially set to 0.
+
+Table Start:-
+
+	JSR GETCHRERR
+	CMP #'"'
+	BNE LSERROR
+			
+-:Table End	
+
+Checks if quotation marks have been entered. If not, our program jumps to the routine »LSERROR« and terminates.
+
+Table Start:-
+
+LSI 	JSR GETCHRERR
+	STA ($BB) ,Y
+	INY 
+	INC *$B7
+	CMP #'"'
+	BNE LSI
+
+-:Table End
+
+In this part of the program, the filename is read and stored in the address contained in $BB/$BC ($0201). Simultaneously, $B7 is incremented as a counter for the name length until the second quotation mark appears. The filename is now stored, starting at $0201.
+
+Table Start:-
+
+	DEC *$B7
+	LDA IO.NR
+	STA *$BA
+	LDA *COMMAND 
+	CMP #'S'
+	BEQ SAVE		
+			
+-:Table End
+
+Since the name length is one too long (the last character was a ""), it must be decremented. The selected or preset I/O number (device number) is stored in $BA so that the operating system routine can later address the correct device. Finally, the Compare instruction checks whether the command "S" is selected and then branches to it.
+
+Table Start:-
+
+LOAD	JSR GETRET
+	BEQ LOAD1
+	LDX #$C3
+	JSR GETADR
+	LDA #$00
+	STA *$B9
+		
+-:Table End
+
+We have now reached the point in the instruction where it must be determined whether the program should be loaded to its original address (absolute) or to a different address. The subroutine "GETTRET" checks whether a "RETURN" follows immediately after the name and branches to "LOAD1" if this is the case. Otherwise, we retrieve the address and load the intended program there, since a zero is stored in memory location
+*$B9, as an absolute load does not occur. The routine "GETADR" is structured so that it places the next 2 bytes at the position selected by the X register in the zero page. Then we also execute "LOAD1".
+
+
+-: Page 3 :-
+
+
+Table Start:-
+
+LOAD1	LDA #$00
+	JMP ($0330)
+SAVE	LDX #$C1
+	JSR GETADR
+	LDX #$AE
+	JSR GETADR
+	JMP ($0332)
+
+-:Table End
+
+In "LOAD1", the indirect jump to the operating system's LOAD routine occurs via $0330.
+
+The SAVE routine first queries for the missing addresses (start and end addresses of the program to be saved), stores them at $C1/C2 and $AE/AF, and then jumps to the SAVE routine. A word about the operating system routines mentioned: There are now at least three different versions of Commodore's operating system for the C64. While these are usually only minor changes, they can have fatal consequences if the entry addresses change. Therefore, there is a special area called the KERNAL, which contains a branch distributor for the most important routines. This distributor is never changed. Always reference the KERNAL routines with your entry points to ensure your program will still run with the twelfth version of the operating system. The KERNAL entries are located at the very end of memory, starting at $FF81.
+
+Secondly, there is a comparison that frequently appears in machine code in all its variations: This involves comparing two addresses. Unfortunately, addresses are 16-bit values, but our processor can only process 8 bits at a time. Let's assume the following conditions: A program is to be listed from $4000 to $4020. The pointers to the end are located in memory locations ENDLO (low byte) and ENDHI (high byte). "PCL" (program counter low) and "PCH" (program counter high) indicate the current state of the program. Then, the system checks for the end of the output using this command sequence:
+
+Table Start:-
+
+COMP		LDA PCL
+		CMP ENDLO
+		LDA PCH
+		SBC ENDHI
+		BCS COMPLETE
+FURTHER		JMP OUTPUT
+COMPLETE	JMP END
+
+-:Table End
+
+As long as PCL and PCH are less than the end values, the program continues.
+
+However, as soon as PCL and PCH reach the values of ENDLO and ENDHI, the carry flag is set, and the query with BCS FINISH would halt the listing. That there can be some problems with this application is evident from the fact that the output is interrupted even when the program has just finished. (The last command might be "dropped.") But every problem has a solution and of course, there are other problems that you can surely solve yourself with a little thought.
+
+Notes on Typing
+
+Carefully type out the loader program, save it (!), and run it. If, contrary to expectations, it immediately reports READY, you've overcome the worst. Otherwise, correct all errors until it runs to READY. Now load the old loader program from the last output and run it. After the READY command, start SMON with SYS 49152. First, try the command "S" to save SMON itself, this time not as a BASIC loader, but as a machine program.
+
+S "SMON $C000" C000 CAB7
+
+SMON now occupies 11 blocks on the disk. From now on, you can load SMON directly with "LOAD "SMON $C000",8,1" and start it with SYS 49152.
+
+Two more notes: A few (!) readers have pointed out that the printout on certain (exotic) printers sometimes exhibits minor flaws. In short, we made a programming error in the last instalment: During disassembly, the last line before the dash (----) disappears in the printer and is no longer visible. This is what happens when you hastily make small "improvements" just before the editorial deadline.
+
+To correct this, do the following: List two lines using "M C56C C57B", move the cursor to the relevant lines, and enter the following change:
+
+Table Start:-
+
+:C56C		09	C9	30	F0	05	C9	21	D0
+		-		-		-			-	
+:C574		11	EA	20	94	C4	20	51	C3
+		-	-	-	-	-				
+			
+-:Table End	
+
+Only the values in bold need to be changed; you can leave all the others as they are. Please remember to only submit the line to the computer by pressing the RETURN key after each change. You can check the list again...
+
+After the last article, we received a lot of calls from readers, most of whom had difficulties entering the DATA values​or troubleshooting. Therefore, here are some tips for the most common problems:
+
+1. If, after completing the data entry, you receive an error message ".... ERROR in 40" (or 70) after the RUN command, the problem is certainly not with line 40 or 70, but most likely with an incorrectly entered value (a "Date"). The computer displays an error message when it encounters a decimal number or another non-POKEable value during the POKE command. Besides simple typos, there are several possibilities: A comma may be missing or replaced by a period. This is particularly difficult to see on the screen.
+
+
+1. If you have finished typing, you will receive an error message ".... ERROR in 40" (or 70). 2. After the program terminates, use the direct command "PRINT I" to check which block (+1) contains the error. So, if the response is "1", the error is in block 2.
+
+3. The direct command "PRINT A" will show you the value that caused the error.
+
+Try this little help first. By the way, our listing is 99% likely to be error-free, having been tested multiple times by us and the editorial team. The occasional typo has virtually no chance, since the listing runs directly from the floppy disk to the printer.
+
+I hope you haven't given up trying out the various commands as often as possible. You know: practice makes perfect – and that's especially true for machine language. In the next issue, you'll find the final refinements of SMON, which will then be complete.
+
+(Norfried Mann/gk)
+
+
+-: Page 4 :-
+
+
+Table Start:-
+
+ 10 rem **************************
+ 20 rem *         SMON           *
+ 30 rem *  by n,mann & d.weineck *
+ 40 rem *     fleetrade 40       *
+ 50 rem *     2800 bremen        *
+ 60 rem *  tel. 0421 / 493090    *
+ 70 rem *       0421 / 231401    *
+ 80 rem *                        *
+ 90 rem *                        *
+100 rem ************************** 
+110 fori=Oto2:reada:pr(i)=a:next 
+120 sa=51261:i=O
+130 pa=sa+256*i:ch=O
+140 forj=Oto255:reada:pokepa+j,a:ch=ch+a:next
+150 remifch<>pr(i)then200
+160 i=i+1:ifi<2then130
+170 pa=pa+256:ch=O
+180 forj=Oto121:reada:pokepa+j,a:ch=ch+a:next
+190 ifch=pr(i)thenend
+200 print"error in block"i+1:end
+210 rem
+220 rem *** block checksums ***
+230 rem
+240 data34652,35523,16258
+250 rem
+260 rem *** block 1 ***
+270 rem
+280 data32,141,194,141,175,2,96,32,141,194,141,176,2,96,76,209,194,160,2,132
+290 data188,136,132,185,132,187,136,132,183,32,202,194,201,34,208,234,32,202
+300 data194,145,187,200,230,183,201,34,208,244,198,183,173,176,2,133,186,165
+310 data172,201,83,240,19,32,194,194,240,9,162,195,32,128,194,169,0,133,185
+320 data169,0,108,48,3,162,193,32,128,194,162,174,32,128,194,108,50,3,32,126
+330 data194,32,202,194,73,2,74,74,8,32,128,194,32,81,195,40,176,12,165,253
+340 data101,251,170,165,254,101,252,56,176,9,165,251,229,253,170,165,252,229
+350 data254,168,138,132,252,133,251,132,98,133,99,8,169,0,133,211,32,117,198
+360 data165,252,208,15,32,73,195,165,251,32,42,195,165,251,32,208,195,240,3
+370 data32,35,195,32,76,195,162,144,165,1,141,177,2,169,55,133,1,40,32,73,188
+380 data32,221,189,174,177,2,134,1,76,86,195,32,141,194,170,164,211,177,209
+390 data73,32,240,163,138,168,32,154,194,56,176,169,32,184,194,160,8,72,32
+400 data202,194,201,49,104,42,136,208,245,240,235,32,184,194,162,0,138,134
+410 data251,133,252,168,32,207,255,201
+420 rem
+430 rem *** block 2 ***
+440 rem
+450 data58,176,132,233,47,176,4,56,76,196,200,133,253,6,251,38,252,165,252
+460 data133,254,165,251,10,38,254,10,38,254,24,101,251,8,24,101,253,170,165
+470 data254,101,252,40,105,0,76,52,201,32,122,194,169,55,133,1,162,4,189,135
+480 data192,149,170,202,16,248,32,81,195,166,170,165,171,32,205,189,230,170
+490 data208,2,230,171,169,68,32,210,255,169,193,32,210,255,160,0,177,251,132
+500 data98,133,99,32,209,189,32,99,196,162,3,176,10,169,44,166,211,224,73,144
+510 data227,162,9,134,198,189,125,192,157,118,2,202,208,247,76,110,195,32,122
+520 data194,32,141,194,162,0,129,251,72,32,99,196,104,144,247,96,32,90,194
+530 data165,166,208,2,198,167,198,166,32,48,202,134,181,160,2,144,4,162,2,160
+540 data0,24,165,166,101,174,133,170,165,167,101,175,133,171,161,164,129,168
+550 data65,168,5,181,133,181,165,164,197,166,165,165,229,167,176,29,24,181
+560 data164,121,107,192,149,164,181,165,121,108,192,149,165,138,24,105,4,170
+570 data201,7,144,232,233,8,170,176,207,165,181,240,15,76,209,194,56,162,254
+580 data181,170,245,166,149,176,232,208,247,96
+590 rem
+600 rem *** block 3 ***
+610 rem
+620 data32,98,202,76,214,201,76,98,202,197,167,208,2,228,166,176,19,197,165
+630 data208,2,228,164,144,11,133,180,138,24,101,174,170,165,180,101,175,96
+640 data32,90,194,32,122,194,32,48,202,32,203,196,200,169,16,36,171,240,38
+650 data166,251,165,252,32,70,202,134,170,177,251,133,181,32,74,197,160,1,32
+660 data70,202,202,138,24,229,170,145,251,69,181,16,25,32,81,195,32,35,195
+670 data36,171,16,15,177,251,170,200,177,251,32,70,202,145,251,138,136,145
+680 data251,32,106,198,32,102,196,144,181,96
+
+ready.
+
+Listing »SMON Part 2« (Basic loader)
+
+-:Table End
+
+
+-: Page 5 :-

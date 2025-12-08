@@ -1,0 +1,511 @@
+
+You can't do without a good tool:
+SMON (Part 4)
+
+The trace mode, i.e., executing machine programs step by step, is arguably the most important tool for testing machine programs.
+
+SMON even offers three different trace options, which are presented in this fourth part.
+
+You will also receive an overview of all commands, and we will show you how to move SMON to a different area.
+
+We have omitted one command so far, which is already available but has not yet been described. It is the comparison of two memory areas. The syntax is very simple:
+
+= 4000 6000
+
+compares the memory contents starting at $4000 with those starting at $6000. The first non-matching byte is displayed, and the comparison is aborted.
+
+So, if you've written and revised a machine program and you're unsure of the difference between versions 76 and 77, proceed as follows: First, load version 76 and move it to free memory using the "W" command. Then, load version 77 and execute the "=" command. You'll immediately see the difference and can begin working on version 78....
+
+When describing the trace commands, we'll focus on practical examples. Regarding the structure of the routine, it's important to note that it's controlled by processor interrupts, as this is the only way to intervene in the running machine program. During the trace process, the screen is briefly turned off and on again because all other interrupt requests, such as those from the video chip, must be prevented. Since the program's instructions are not only displayed but also actually executed, the "SEI" command must be used with great care. More on that later. We want to use a new, more suitable example than before. So, type the following mini-program in assembler (A 4000):
+
+Table Start:
+
+4000 LOA #30 		Charge the accumulator with (ASCII) 0
+4002 JSR FFD2 		Print the accumulator to the screen
+4005 CLC
+4006 ADC #01 		Increment the accumulator by 1
+4008 CMP #39 		Compare the accumulator with (ASCII) 9
+400A BCC 4002 		Jump back if the accumulator is smaller
+400C BRK 			Jump back to SMON
+
+-:Table End
+
+Start the program with "G 4000". It must print the numbers from 0 to 8 to the screen.
+
+
+◆ Trace Stop
+TS (Start Address Stop Address)
+Start our program with
+TS 4000 4009
+
+The first instructions are executed (the zero is printed, the accumulator is incremented, etc.), then the program stops at address $4009 and jumps to the register display.
+
+Strictly speaking, "TS" isn't actually a trace command. The program runs in real time up to the selected stop address. Once there, you can check the registers and, if necessary, modify them by overwriting them. You can then continue the program execution with "Ge", "TW", or "TB" (explained later) without specifying any further addresses. SMON remembers where it stopped and continues from that address unless you specify a new one.
+
+This command is useful whenever only specific parts of a longer program need to be traced, but the beginning must be executed to set variables or request user input. Even if you're not entirely sure whether a particular passage will ever be executed, you can check it with "TS".
+
+However, there are two limitations due to how this command works: SMON places a BRK instruction at the stop address in the program and remembers which instruction was there in order to write it back. Therefore, "TS" only works in RAM, not, for example, in BASIC or the operating system. Also, the memory location where SMON stores the replaced instruction ($02BC) must not be changed by the program; otherwise, a correct repair is no longer possible.
+
+The most frequently and versatilely used trace command is certainly "TW".
+
+◆ Trace Walk
+TW (Start Address)
+Start our example now with TW 4000
+
+The first instruction (LDA #30 at address $4000) is executed. SMON stops and then displays the contents of all registers in the same order as with the "R" command, as well as the next instruction. The accumulator now shows 30, and the program counter points to $4002. Now press a key. The next instruction (JSR FFD2) is executed, and the program counter points to $FFD2. Note the stack pointer. Its value has decreased by 2 because the processor has placed the address on the stack to which it should jump back after the subroutine finishes. The next displayed instruction is an indirect jump via $0326. It will be executed with the next key press.
+
+Now press a key. And so it merrily continues. Don't despair if, after the next ten keystrokes, you're still tracing somewhere in the operating system and there's no sign of our example program anywhere.
+
+For once, our darling hasn't disappeared into the land of dreams, but is doing what it's supposed to: It's dutifully processing one instruction after another, everything that belongs to the routine $FFD2, and that's quite a lot. So keep moving your fingers; you asked for it. Eventually, after several hundred keystrokes, you'll suddenly find yourself back in the SMON register display. The program has finished. Now you'll be disappointedly asking, "What's the point of a trace mode that creates completely impenetrable chaos even with the smallest example programs?" Just be patient; salvation is at hand in the form of the "J" key.
+
+If your hand isn't already in a cast, start the whole thing again from the beginning with "TW" 4000. This time, press the button every time the next command displayed is "JSR FFD2".
+
+-: PAGE 1 :-
+
+Pressing "J" will cause the entire subroutine to be executed in one go, and you will immediately return to the next instruction in our example. You can see that we haven't cheated and simply omitted the instructions of "JSR FFD2" because the accumulator was actually displayed on the screen (to the right of FF02). Now you can calmly work through our example to the end and follow how the accumulator is incremented, how the comparison affects the status register, and how the return to the loop occurs.
+
+You can also use the "J" key even if you are already in the middle of the subroutine. However, extreme caution is advised: The return address must be on top of the stack when you press "J". If the processor has placed values ​​on the stack (using PHA or PHP), the jump will go somewhere other than back to the program. Therefore, pay close attention to the stack pointer display. If its value is exactly the same as it was at the beginning of the subroutine, nothing will go wrong. Otherwise, the only options are the reset button, which you hopefully have installed by now, or a steady hand holding a paperclip between pins 1 and 3 of the user port (repair costs around 100 DM if it slips...).
+
+"TW" automatically terminates with register display if a "BRK" instruction appears in the program. If this takes too long or you want to change a register in the meantime, you can exit trace mode at any time with the stop key. You can then continue as described for "TS".
+
+Unlike "TS", you can also browse the ROM with "TW"; you already did this with the subroutine $FF02. The only limitation with the "TW" instruction is that your program must not contain a "SEI", as this disables the interrupt and thus also trace mode. In this case, exit "TW" with STOP and restart after the "SEI" instruction. However, you must accept that the program will usually no longer function correctly.
+
+The next program will serve as another example of TW mode. Enter it as follows:
+
+Table Start:
+
+5000 LDA #00 		loads the accumulator with "0"
+5002 TAX #04 		transfers the accumulator to the X register
+5003 .OC 			a mysterious byte
+5004 LDA #04 		loads the accumulator with "4"
+5006 TAY 			transfers the accumulator to the Y register
+5007 BRK 			jumps to SMON
+
+-:Table End
+
+If we execute this small program, the X register should be set to "0", while the accumulator and Y registers are loaded with "4". So let's start the program with "G 5000" and take a look at the registers.
+
+Strangely, all registers contain a "0". Being cautious, we overwrite the three registers with "FF" to clearly control the change.
+
+Then we start a second time with "G 5000". Against all logic, the "wrong" result appears again – all three registers are "0". Here, the TW mode should help us by showing us what's actually happening.
+
+Let's enter "TW 5000". The first instruction (LDA #00) is executed, and zero appears in the accumulator. Now the program counter is on the next instruction, "5002 TAX". After pressing a key, this instruction is executed, and zero appears in the X register. With the next instruction, we notice that the disassembler is unable to interpret it – it outputs three asterisks. This is our byte "0C".
+
+Another key press: and then we realise that something strange has happened. The processor has apparently skipped the next instruction (LDA #04) and is already on the following "TAY". So this is how our program is executed. This also explains the "incorrect" result. The only remaining question is the reason for this strange behaviour. And that is certainly to be found in the mysterious byte "OC". This is one of the "unofficial" opcodes (also called pseudo-opcodes) that exist due to the processor architecture and wreak havoc in some programs—as we unfortunately discovered. The byte "OC" acts like a "NOP" with a length of 3 bytes. Therefore, the following 2-byte instruction (LDA #04) is swallowed.
+
+There is still much to discover on the 6502 and 6510—TW makes it possible.
+
+Often, it is not advisable to run a program in TW mode from the start. Furthermore, loops that have to be executed manually using "TW" are a tedious process. In addition to the previously described "TS," SMON offers another tracing option:
+
+◆ Trace Break
+TB (address, number of passes)
+
+◆ Trace Quick
+TQ (address)
+Enter the following program as an example:
+
+Table Start:-
+
+6000 LDY #00 		Y sets counter to "0"
+6002 LDA 600E,Y 	Load values ​​from $600E onwards
+6005 JSR FFD2 		Display characters on screen
+6008 INY 			Increment counter
+6009 CPY #OE 		Counter already "14"
+600B BCC 6000 		If not, get next value
+601D BRK
+
+-:Table End
+
+At $600E, a text should now be stored, which the program will output. The simplest way to write text to memory with SMON is using the "K" command. Enter
+
+K 600E
+
+(followed by pressing Return) and press the STOP key. Move the cursor to the first character displayed (probably a period) and type '–' without quotation marks:
+
+»ERROR FIXED«
+Then press Return to send the line to the computer.
+
+When you run the program, you'll once again have the opportunity to grab a drink (Cheers!), because the program contains a silly bug and will keep the computer busy for a very, very long time. More precisely, until you reset it (for example, using RUN/STOP-RESTORE).
+
+Now, SMON should help locate this bug. First, set a breakpoint at $6002 and limit the number of iterations to the maximum:
+
+TB 6002 0E
+
+and start the quick trace at $6000 with
+
+TQ 6000
+
+The program will run until address $6002 is reached 14 times and then switch to TW mode. If you now take a close look at the register contents, the error should be immediately obvious. What should the Y register be? What value should the battery have? Right?! (The answer will be revealed with the announcement of the winners of the big prize draw from the last issue...)
+
+If you've worked with SMON for a while, you might not like some of the default settings. For example, owners of a Datasette have to set their device address with "I 01" every time. If you refer to our
+
+-: Page 2 :-
+
+Those who participated in last time's "contest" will likely already be familiar with these memory locations. Incidentally, we received approximately 235,982 correct entries; we then wrote a program to determine the winner. This program is currently running on a mainframe computer in the USA, as the C64's memory was insufficient. We will inform you after the program run is complete, which we expect to be in mid-June of this year.
+
+If you are not among the lucky winners, we have listed the memory locations where the default settings are stored below. You can then modify these settings to your liking using the "M" command.
+
+Don't forget to save your modified version with "S "@:SMON $C000" C000 CE09".
+
+ Table Start:-
+
+Background Colour					: $C220
+Printer Colour						: $C228
+Device Address						: $C21B
+Device Address - F1/Cassette		: $C216
+
+-:Table End
+
+Who is where? - A guide through SMON
+
+If you want to analyse or modify routines in SMON, you need to know the entry addresses of the individual instructions. These are easy to find:
+
+At the beginning of the program (starting at $C00B) is a list of all commands followed by the addresses (starting at $C02B) where these commands begin. Display the instruction list with "M C00B C02B" (see Figure 1). You will see that there are five zeros at the end; you can insert your own new instructions here. Use "M C02B C06B" to get the list of entry addresses. Always in the order low byte - high byte, this time with 10 zeros at the end, because each instruction requires 2 bytes for the address.
+
+As an example, we will now find the routine for filling a memory area with a specified byte. The corresponding instruction is "O", which is the 20th instruction ($C01E). The associated address is also 20 in the list, so $C9C0 (in memory location $C051 / $C052). However, the routine always starts one byte later, in our case at $C9C1.
+
+Now disassemble this routine with "C C9C1 C9D3". You will receive the following commands (without comments, of course):
+
+Table Start:-
+
+	 JSR CZ7A 			retrieves two addresses to $FB/FC and $FD/FE
+	 JSR C28D 			retrieves the desired byte into the accumulator
+	 LDX #00 			initialises the X register as a counter
+LOOP STA (FB,X) 		stores the accumulator contents at the first address
+	 PHA 				stores the accumulator contents
+	 JSR C463 			increments the address and compares it to the end address
+	 PLA 				retrieves the accumulator contents
+	 BCC C9C9 			if the end is not reached, then jumps to Loop
+	 RTS
+
+-:Table End
+
+If, for example, you only want to use the "O" command for clearing, you could modify the routine so that only the two addresses need to be entered. Simply overwrite the JSR C28D instruction with LDA #00 in the disassembler listing, disassemble again with "D C9C1 C9D3", and overwrite the three asterisks at C9C6 with "NOP" to fill the resulting gap (the 3-byte instruction was replaced by a 2-byte instruction). Now you can test your modified routine. For example, type "O 5000 5200" and verify its correct execution with "M 5000 5200". You can also copy the modified routine to the end of the program with "W C9C1 C9D3 CE09" and create a new "E" (Erase) instruction. Then, you only need to write "45" (for "E") to the first zero at the end of the command table and "0B" and "CE" (for address $CE09) to the first two zeros in the address table.
+
+
+Feel free to take the time to analyse and modify other routines in SMON in this way. Firstly, it's fun, and secondly, you can customise SMON to your own preferences. You might even think of routines that are missing from SMON. We would appreciate your suggestions for improvement.
+
+---------------------------------
+         SMON's "Memory"
+---------------------------------
+
+If you want to examine or modify programs with SMON, you need to know which memory locations SMON uses. Some monitor programs use the BASIC pointers as working memory, so a BASIC program is deleted from the monitor after returning to the monitor. SMON doesn't do this. But of course, it also needs memory locations to store values. To help you avoid conflicts from the start, the most important ones are shown here.
+
+In the zero page, SMON occupies the area from $00A4 to $00B6. This area contains system variables for cassette storage and the RS232 interface. These are only used while the cassette or RS232 is running, but are otherwise free. Additionally, the memory locations $00FB to $00FF are used, which are already available for the user's use. All other pointers in the zero page, especially the memory management for BASIC, remain unaffected.
+
+SMON uses the area from $02A8 to $02CO as additional memory. This area is also not used by the operating system, so no conflicts should arise. During assembly, the cassette buffer is additionally required as storage for the labels. Otherwise, this remains unchanged; this is important if machine routines are to be stored there.
+
+All in all, SMON is quite compatible.
+
+-----------------------------------
+      Move SMON? - With SMON!
+-----------------------------------
+
+We have received several inquiries asking whether SMON can be moved using the "W", "V", or "C" commands. All attempts in this direction have failed. Some readers also suggested there must be a bug in the V routine. This time, however, we are completely innocent; there are some instructions in SMON that are not jump addresses and yet still refer to the area ($C000) where SMON resides.
+
+This primarily includes the entry addresses mentioned above, whose high byte must of course be changed if SMON is to run in a different memory area. However, there are also instructions that need to store an address in a vector within the program. Disassemble the beginning of SMON with "D C000 C00B" and you will get:
+
+Table Start:-
+
+LDA #14 		Low byte of SMON's BREAK routine
+STA 0316 		Stored in the break vector
+LDA #C2 		High byte (!) see above
+STA 0317 		see above
+BRK
+
+-:Table End
+
+This sets the operating system's break vector to SMON, and with the subsequent BRK instruction — and every subsequent one — the program jumps to SMON's BREAK routine. If SMON is in a different memory area than $C000
+
+-: Page 3 :-
+
+If it's supposed to run, then these instructions need to be changed. You can find them
+with "FIC*,C000 D000". You still remember what this instruction means: Find me
+all instructions that load a register directly with a value that begins with $C.
+
+But be careful! Not everything that's displayed needs to be changed!
+
+To save you more hours of pointless agonising, we'll show you as an
+example how to move SMON to the range $9000 to $A000.
+
+Of course, this works in principle for any other range as well; we ourselves have
+a total of five SMON versions for five different memory ranges,
+one of which always fits.
+
+1. First, we move the entire program to the new range without conversion:
+
+	W C000 CE09 9000
+
+2. Now we convert all absolute (3-byte) instructions. The tables at the beginning
+of SMON remain unchanged:
+
+	V C000 CE09 9000 9214 9E09
+
+3. Next, we change the high bytes of the command addresses. Enter
+
+	M 902B 906B
+
+and change the "C" in every second byte to "9" by overwriting it.
+
+Don't forget to press "Return" at the end of each line so that your change
+is applied.
+
+4. Finally, there are the direct load commands described above. They must be
+modified so that they refer to the new range $9... Find them
+
+with
+
+	FIC*,9000 9E09
+
+you will get
+
+Table Start:-
+
+9005 LDA #C2 		Change
+9124 CPX #C0 		Do not change
+9386 LDY #C0 		Change
+9441 CMP #C0 		Do not change
+987F LDX #C3 		Do not change
+988D LDX #C1 		Do not change
+9992 LDA #C1 		Do not change
+9C2C LDA #CC 		Change
+9C5B LDA #C2 		Change
+9CF4 LDA #CC 		Change
+9DA1 LDX #CC 		Change
+9E03 LDA #CC 		Change
+
+-:Table End
+
+Only change the "C" to "9" in the marked lines. As you can see, there's no rule about which commands need to be changed and which don't. Therefore, you must make these changes manually.
+
+Now, be sure to save the finished version with "S "SMON $9000" 9000 9E09".
+
+Now start the 9000 version with "G 9000" or from BASIC with SYS 36864
+(SYS 9 x 4096). Then delete the old SMON with "O C000 D000 00". Only in this way can you be sure that the moved SMON works correctly and that you haven't overlooked anything.
+
+Now test all the commands. You must work exactly as before. In particular, you can now also examine programs like "DOS 5.1" or "Turbo Tape", which are located in the $C000 area. However, when using "SMON $9000" from BASIC, be careful that BASIC doesn't overwrite it. String variables are built from $A000 downwards, and there isn't much space until $9E09. If in doubt, protect the range by entering the following after loading SMON $9000:
+
+NEW : POKE 56,144 : POKE 55,0
+
+This protects SMON from being overwritten. This isn't necessary for SMON $C000, of course, because BASIC can't access that range.
+
+First, another confession: Unfortunately, the gremlins got us again in the December issue,
+
+but the poor thing has to have some fun, too. Please forgive them and us.
+
+- that he snuck a REM statement into line 150 of the listing, which has absolutely no business being there. It prevents the checksum from being checked and input errors from being detected.
+
+- that on page 62 he incorrectly claimed that the "LOAD" routine starts at $C84F. In reality, it starts at $C84E.
+
+- that on page 63, in his own words, he recommends checking the DATAs when encountering "... Error in 40" (or in 70). Of course, the error doesn't occur in the REM lines, but rather in line 140 or 180.
+
+- that he had already done some preliminary work and carried out his nefarious deed in the January issue. There, in the description of the 16-bit comparison, it states that the zero flag is set if both values ​​are equal. That's true, but as you know, the devil is in the details. And the gremlin of typos is no exception. It tempts us to the seemingly logical conclusion that we can check whether two 16-bit values ​​are equal in the described manner. But that's precisely what doesn't work. The zero flag has the annoying quirk of being set even when the first value is up to 255 times larger (!) than the second. Therefore, if you want to reliably test for equality, you have to subtract the two values ​​and check if the result is zero.
+
+ -------------------------------------
+        Typing Instructions
+ -------------------------------------
+
+We promise to do better, and as a sign of our daily remorse, we've made entering the DATA easier for you. Elsewhere in this booklet, you'll find the program "MSE." This virtually eliminates typos, and it's also faster and more convenient. So, on the next page, you won't find the usual BASIC loader, but instead a kind of hex dump that you can type in using "MSE." You can find out exactly how to do this in the accompanying article. After you've finished typing, save your work. Now load the SMON machine program from last time and start it with SYS 49152. Append the new part with
+
+"L "SMON PART 4""
+
+and save the whole thing again with
+
+S "@:SMON $C000" C000 CE09"
+
+you will then have the complete program (15 blocks on the disk) available.
+
+
+
+We hope that SMON has provided you with a truly useful tool. The numerous letters and calls we have received throughout this series confirm this impression. It seems to us that many readers are beginning to delve into machine language and utilise its capabilities. And that is precisely what we wanted to achieve.
+
+With that, we would actually have reached the end of this series and would have bid you farewell with the usual best wishes. But the free bytes at the end of SMON, from $CE09 to $D000, a total of over 500 bytes, have been nagging at us. As a bonus, we will therefore present a small disk monitor in the next issue, which, when integrated into SMON, can utilise its capabilities.
+
+(N. Mann/D. Weineck/gk)
+
+Notes on Figure 1
+
+All inputs are in hexadecimal notation. Address entries in parentheses can be omitted. SMON will then use appropriate predefined values. All output commands can simultaneously be printed. To do this, the commands are entered while holding down the SHIFT key.
+
+-: Page 4 :-
+
+Table Start:-
+
+Image 1. SMON Instruction Overview
+
+- A 4000 (Assembler)
+	Symbolic assembler (label processing possible)
+	Start address $4000
+
+- B 4000 4200 (Basic DATA)
+	Creates Basic DATA lines from machine code in the range
+	of $4000 - $41FF
+
+- C 4010 4200 4013 4000 4200 (Convert)
+	In a program located in memory from $4000 - $4200, a 3-byte instruction is to 
+	be inserted at $4010. For this, the program from $4010 - $4200 is moved to 
+	the new address $4013. All absolute addresses within the program range 
+	($4000 - $4200) are converted so that the jump targets are correct.
+
+- D 4000 (4100) (Disassembler)
+	disassembles the range of $4000 ($4100) and outputs the hexadecimal values. 
+	Changes can be made by overwriting the instructions.
+
+- F (Find)
+	finds strings (F), absolute addresses (FA), relative jumps (FR),
+	tables (FT), zero-page addresses (FZ), and immediate instructions (FI).
+
+- G (4000) (Go)
+	starts a machine program that begins at $4000 in memory.
+
+- I 01 (I/O Device)
+	sets the device number for floppy (08 or 09) or datasette (01).
+
+- K AOOO (A5OO) (Control)
+	For quickly searching the range of $AOOO (- $A500) for ASCII characters 
+	(32 bytes per line). Changes are possible by overwriting the ASCII characters.
+
+- L (4000) (Load)
+	Loads a machine program to the correct or a specified address ($4000)
+
+- M 4000 (4400) (Memory Dump)
+	Outputs the contents of the memory of $4000 (- $43FF) in hexadecimal bytes
+	and ASCII code. Changes are possible by overwriting the hexadecimal numbers.
+
+- O 4000 4500 AA (Occupy)
+	Fills the memory range of $4000 - $4500 with a specified byte ($AA)
+
+- P 02 (Printer)
+	Sets device address 2 for a printer
+
+- R (Register)
+	Displays the register contents and flags. Changes can be made by overwriting.
+
+- S "Test" 4000 5000 (Save)
+	Saves a program from $4000 - $4FFF under the name 'Test'
+
+- TW (4000) (Trace Walk)
+	Executes the next machine instruction upon key press and displays the 
+	register contents. Subroutines can be executed in real time ('J'). If no start 
+	address is entered, 'TW' begins at the last address displayed with 'R'.
+
+- TB 4010 05 (Trace Break)
+	Sets a breakpoint for fast-step mode at $4010. Fast-step mode is interrupted 
+	after $4010 has been reached for the 5th time.
+
+- TQ 4000 (Trace Quick)
+	Fast-step mode, jumps to the next step upon reaching a breakpoint. 
+	Single-cut mode.
+
+- TS 4000 4020 (Trace stop)
+	executes a program starting at $4000 in real time and jumps to the register 
+	display when $4020 is reached. From there, execution can continue
+	(possibly with register changes) using "G" or "TW". "TS" operates only in RAM.
+
+- V 6000 6200 4000 4100 4200 (Move)
+	changes all absolute addresses in a program from $4100 - $41FF that refer 
+	to the range $6000 - $6200 to a new range that starts at $4000.
+
+- W 4000 4300 5000 (Walks)
+	moves the memory contents from $4000 to $42FF to $5000 without address 
+	conversion. (For example, tables)
+
+- X (Exit)
+	Jumps back from the monitor program to BASIC
+
+- # 49152
+	Convert decimal number
+
+- $ 0028
+	Convert 4-digit hexadecimal number
+
+- % 01101010
+	Convert 8-digit binary number
+
+- ? 0344 + 5234
+	Addition or subtraction of two 4-digit hexadecimal numbers
+
+- = 4000 5000 (Comparison)
+	Compares the memory contents starting at $4000 with those starting at $5000.
+
+-:Table End
+
+
+Table Start:
+
+Listing 1. Part 4 of SMON. To type in this program, please use the MSE, which you will find listed in this booklet.
+
+PROGRAM: SMON PART 4 ​​CBF1 CE09
+--------------------------------
+
+CBF1 : 68 68 20 CF FF C9 57 D0  DD
+CBF9 : 03 4C 56 CD C9 42 D0 03  6A
+CC01 : 4C D0 CD C9 51 D0 03 4C  A2
+CC09 : 4F CD C9 53 F0 03 4C D1  18
+CC11 : C2 20 8D C2 48 20 8D C2  E0
+CC19 : 48 20 49 C2 A0 00 B1 FB  E5
+CC21 : 8D BC 02 98 91 FB A9 36  AC
+CC29 : 8D 16 03 A9 CC 8D 17 03  53
+CC31 : A2 FC 4C EC C3 A2 03 68  30
+CC39 : 9D AA 02 CA 10 F9 68 68  48
+CC41 : BA 8E AE 02 AD A8 02 85  61
+CC49 : FC AD A9 02 85 FB AD BC  2F
+CC51 : 02 A0 00 91 FB A9 14 8D  4E
+CC59 : 16 03 A9 C2 8D 17 03 A9  A4
+CC61 : 52 4C FF C2 20 51 C3 AD  28
+CC69 : 11 D0 09 10 8D 11 D0 60  8C
+CC71 : 8D AB 02 08 68 29 EF 8D  00
+CC79 : AA 02 8E AC 02 8C AD 02  9D
+CC81 : 68 18 69 01 8D A9 02 68  6F
+CC89 : 69 00 8D A8 02 A9 80 8D  F5
+CC91 : BC 02 D0 10 20 E5 CD 20  2D
+CC99 : DD FD D8 A2 05 68 9D A8  5B
+CCA1 : 02 CA 10 F9 AD 14 03 8D  EE
+CCA9 : BB 02 AD 15 03 8D BA 02  FF
+CCB1 : BA 8E AE 02 58 AD AA 02  40
+CCB9 : 29 10 F0 08 20 65 CC A9  DB
+CCC1 : 52 4C FF C2 2C BC 02 50  E3
+CCC9 : 1F 38 AD A9 02 ED BD 02  2F
+CCD1 : 8D B1 02 AD A8 02 ED BE  3D
+CCD9 : 02 0D B1 02 D0 67 AD BF  8D
+CCE1 : 02 D0 5F A9 80 8D BC 02  C4
+CCE9 : 30 12 4E BC 02 90 CD AE  87
+CCF1 : AE 02 9A A9 CC 48 A9 70  13
+CCF9 : 48 4C BA CD 20 65 CC A9  83
+CD01 : A8 85 FB A9 02 85 FC 20  20
+CD09 : 4C C3 A0 00 B1 FB 20 2A  2F
+CD11 : C3 C8 C0 07 F0 09 C0 01  A6
+CD19 : F0 F2 20 4C C3 D0 ED AD  EA
+CD21 : A9 02 AE A8 02 85 FB 86  D5
+CD29 : FC 20 49 C3 20 CB C4 20  B4
+CD31 : C7 C5 20 E4 FF F0 FB C9  8A
+CD39 : 4A D0 0A A9 01 8D BC 02  17
+CD41 : D0 2F CE BF 02 A5 91 C9  7B
+CD49 : 7F D0 26 4C BD CC 20 F2  EC
+CD51 : CD A9 40 D0 0A 20 F2 CD  26
+CD59 : 08 68 8D AA 02 A9 80 8D  D9
+CD61 : BC 02 BA 8E AE 02 20 49  AD
+CD69 : C2 20 65 CC AD BC 02 F0  D9
+CD71 : 37 A2 00 AD 11 D0 A8 29  3C
+CD79 : 10 F0 10 98 29 EF 8D 11  83
+CD81 : D0 EA EA A0 0C CA D0 FD  EB
+CD89 : 88 D0 FA 78 A9 47 8D 04  5A
+CD91 : DC 8E 05 DC AD 0E DC 29  A2
+CD99 : 80 09 11 8D 0E DC A9 95  2D
+CDA1 : A2 CC 8D BB 02 8E BA 02  08
+CDA9 : AE AE 02 9A 78 AD BB 02  6A
+CDB1 : AE BA 02 8D 14 03 8E 15  AC
+CDB9 : 03 AD A8 02 48 AD A9 02  9A
+CDC1 : 48 AD AA 02 48 AD AB 02  6F
+CDC9 : AE AC 02 AC AD 02 40 20  10
+CDD1 : 8D C2 8D BE 02 20 8D C2  D7
+CDD9 : 8D BD 02 20 8D C2 8D BF  6E
+CDE1 : 02 4C D6 C2 AD B8 02 AE  1D
+CDE9 : B9 02 8D 14 03 8E 15 03  88
+CDF1 : 60 AD 14 03 AE 15 03 8D  48
+CDF9 : B8 02 8E B9 02 A9 95 8D  6C
+CE01 : 16 03 A9 CC 8D 17 03 60  FB
+
+-:Table End
+
+-: Page 5 :-

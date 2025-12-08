@@ -1,0 +1,860 @@
+
+Without the right tools, it's impossible: SMON (PART 1)
+
+In several parts, we would like to introduce you to a machine language monitor. Parallel to the course on assembly programming, a program will be developed step by step that can certainly compete with commercial monitors.
+
+I still remember our first steps into machine language very well. Equipped with an instruction list for the 6502 and a "mini-monitor" written in BASIC, we created programs that could add 3 and 5 and store the result in memory. To do this, we had to find the instruction codes in the list and then "POKE" them into memory. Every jump had to be calculated manually, and every incorrectly selected instruction led to a program crash. The first disassembler—a program for displaying machine instructions in assembly language—was a revelation for us.
+
+From then on, we could analyse machine programs and learn from them. Understanding machine language requires, even more so than with other languages, understanding existing programs and acquiring the most important techniques.
+
+Over time, our demands grew, and we needed an assembler to try out our newfound knowledge. Initially, this was another BASIC program—slow and inconvenient, but it worked. We wrote our first small routines, primarily to adapt existing machine code to our own needs. With AMON for the VC 20, we finally got a monitor that fulfilled (almost) all our requirements. However, when we switched to the C64, we discovered that there was nothing available for this computer that satisfied us. The only solution: to program ourselves.
+
+Thus, over the course of a year, SMON was created. Originally, we only intended to program AMON's functions for the C64, but it didn't stop there. We kept adding new instructions and routines until we were finally satisfied.
+
+What does SMON offer?
+
+First, it includes everything that's considered standard: a memory dump (displaying the memory contents in hexadecimal bytes) with editing capabilities, a disassembler with editing capabilities, and routines for loading, saving, and running machine programs. In addition, there's a small direct assembler that even handles labels, instructions for moving data in memory with and without address conversion, and routines for converting between hexadecimal, decimal, and binary numbers. However, SMON's real strength undoubtedly lies in its powerful search routines and, above all, its trace mode. This allows you to execute and monitor machine programs step by step.
+
+This first part includes all input and output routines, register display, memory dump, as well as the disassembler and assembler. This provides you with a fully functional monitor program containing the instructions listed below.
+
+
+SMON's real strength, however, undoubtedly lies in its powerful search routines and, above all, its trace mode. The monitor requires hexadecimal notation for all inputs. This means that in addition to the numbers 1 through 9, the letters A (for decimal 10) through F (for decimal 15) are also used.
+
+When entering addresses, please note the following: [Start address] means exactly the starting address, [End address] means the first address after the selected range. Normally, entries with and without spaces are permitted. Any exceptions to this rule will be specifically indicated.
+
+Assembling
+
+A [Start Address]
+Assembly begins at the specified address. Example:
+
+A 4000 Start at address $4000
+
+After pressing "RETURN", the selected address appears on the screen with a blinking cursor. Commands are entered as shown by the disassembler:
+LDY #00 or LDA 400E,Y, and so on. "RETURN" completes the line input. If an error occurs, the cursor returns to the starting position. Otherwise, the command is disassembled and listed after the hexadecimal bytes are output. To correct previous lines, move the cursor back to the starting position (after the address), rewrite the command, and after pressing "RETURN", move the cursor back to the last line. If you do not yet know the target addresses for jumps (branch commands, JSR, and JMP), simply enter so-called "labels".
+
+A label consists of the letter "M" (for label) and a two-digit hexadecimal number from 01 to 30.
+
+For example: BCC M01
+
+When you reach the target address for this jump, you mark it with this "label."
+
+For example: M01 LDY #00
+
+The assembler accepts individual bytes by marking them with a dot: .00 or .AB. In this mode, the inputs are not disassembled.
+
+
+-: Page 1 :-
+
+
+After assembly is complete, press "F". You will then see all your input listed again and can correct it as needed, as instructed by the disassembler (!).
+
+Try the following example: A 4000
+
+The assembler will respond with "4000" and a blinking cursor. Now enter the following (the addresses will appear automatically):
+
+Table Start:-
+
+4000 LDY #00
+4002 LDA 400E,Y
+4005 JSR FFD2
+4008 INY
+4009 CPY #12
+400B BCC 4002
+400D BRK
+
+-:Table End
+
+The following bytes are entered with a period as described. They will not be disassembled.
+... 
+
+Table Start:-
+
+400E .0D
+400F .0D
+4010 .53
+4011 .4D
+4012 .4F
+4013 .4E
+4014 .20
+4015 .49
+4016 .53
+4017 .54
+4018 .20
+4019 .53
+401A .55
+401B .50
+401C .45
+401D .52
+401E .0D
+401F .0D
+
+-:Table End
+
+Then press "F". Your program will be listed again. Now start it with "G 4000". Text will appear on the screen - be surprised.
+
+Disassemble
+
+D [Start Address, End Address]
+
+disassembles the range from the start address to the end address, where the end address does not need to be entered. If no end address is entered, only one line appears initially:
+
+ADR 	HEXBYTES 	COMMAND
+4000 	  AOOO 		LDY #00
+
+Pressing the SPACE key displays the next command in the same manner. For continuous output, press RETURN. The output will then continue until another key is pressed or the end address is reached. Press RUN/STOP to return to input mode at any time.
+
+The comma that appears before the address on the screen is a hidden command. It does not need to be entered, as it is automatically displayed during disassembly. This allows for easy modification of the program. Move the cursor to the command to be changed and overwrite it with the new one. If you now press "RETURN", SMON recognizes the comma as an instruction and executes it in memory. Make sure, however, that the new instruction has the same length (in bytes) and pad it with "NOPs" if necessary. To check, you can disassemble the modified section again.
+
+As an example, disassemble the program (see instruction "A") starting at 4000 ("D 4000 4011"). Now change the first instruction to LDY #01. The change is evident because the HEX bytes automatically adopt the new value. Now start the program again with "G 4000". The text now appears on the screen with only one line spacing.
+
+Starting a machine program (Go)
+
+G [ADDRESS]
+starts a machine program that begins at ADDRESS. The program must terminate with a BRK instruction so that a return to SMON is possible. If no address is entered after "G", SMON uses the address reached with the last BRK command, which appears as PC in the register output. The "R" command (see below) is used to set the registers to the desired values beforehand.
+
+Memory Dump
+
+M [Start Address End Address]
+
+Outputs the hexadecimal values of the memory along with their corresponding ASCII characters. Entering an end address is optional. Output control is the same as during disassembly.
+
+Example:
+
+M 4000 outputs the contents of memory locations $4000 to
+$4007. Proceed as with disassembly using SPACE or RETURN. The bytes can also be modified by overwriting, but not the ASCII characters. This is due to the colon, which is output at the beginning of each line—another "hidden command." If your modification cannot be executed, for example, because you are trying to write to ROM, a "?" will be displayed as an error message.
+
+Register Display
+
+R displays the current status of the most important 6510 registers: Program Counter (PC), Status Register (SR), Accumulator (AC), X Register (XR), Y Register (YR), and Stack Pointer (SP). Additionally, the individual flags of the Status Register are displayed, with 1 for "set" and 0 for "not set." Overwriting these flags sets the values ​​to the desired values. However, the flags cannot be changed individually, only by overwriting the value of SR.
+
+Exit
+
+X returns to BASIC. All BASIC pointers are preserved. This means you can, for example, continue directly in the program if you have checked some memory locations with SMON in the meantime.
+
+Try out all the commands described so far and familiarise yourself with SMON. Also, work through the assembly programming course in this issue. All the examples there are tailored to SMON.
+
+Now let's take a look at the program itself. Of course, it's impossible to describe the entire source code comprehensively. However, SMON contains a number of routines that appear in every machine code program. In this series, we will try to explain the most important ones so that you can later incorporate them into your own programs.
+
+For better understanding, these routines are printed as we wrote them in the assembly source code. Therefore, instead of absolute addresses, they contain labels whose names—hopefully—indicate something about their purpose. At the same time, you should have SMON disassemble these routines so you can see what the final version looks like in memory.
+
+
+-: Page 2 :-
+
+
+Let's start with the routine GETCHRERR. This is supposed to mean something like "Get a character and generate an error message if none has been entered." Unfortunately, such a label would be far too long even for the most patient assembler, hence the peculiar abbreviation. With this routine, we retrieve a character from the keyboard. This is handled by the operating system routine CHRIN. To check whether anything has been entered at all, we examine the character. If it's the "RETURN" key ($0D), the user hasn't entered any character. SMON acknowledges this with a "?" and returns to input mode. This allows us to check—within certain limits—whether the correct input has been entered for a command. Try entering the "D" command without specifying an address, and you'll see what this means.
+
+All input routines use GETCHRERR to check for invalid input. Let's take GETBYT as an example. This routine retrieves a byte, i.e., two ASCII characters 0–F, from the keyboard and converts them into a single byte. The first character is checked to see if it's a space or a comma. If it is, it's simply skipped, and the next character is retrieved. The user can therefore use spaces and commas to make their input clearer, but they don't have to! If the character is valid, however, it's converted into a hexadecimal number by ASCHEX.
+
+Here's an example:
+
+The number 5B was typed on the keyboard. First, the 5 (ASCII $35) is compared to $3A to determine whether it's a number (0-9) or a letter (A-F). ASCII $35 is a number, so only the left half is masked (AND #$0F). The result is $05. Now, the value is shifted four times to the left, and the result ($50) is temporarily stored in $B4. Now it's the B's (ASCII $42) turn. Since $42 is greater than $3A, this time 8 and the set carry flag, i.e., 9, are added. The result is $0B. Mask out the left half as before and perform an OR operation with the stored $50 yields $5B. That's it.
+
+Most of the time, however, SMON needs two bytes as input, for example, for addresses. With what we already have, this is no problem: GETADR simply calls GETBYT twice in succession and stores the result in two memory locations in the zero page, which can be selected using the X register. If we need more than one address input, we simply call GETADR multiple times. GET3ADR and GET2ADR do this. Sometimes, however, for example with the G command, an address may be entered, but it is not mandatory. Therefore, GETSTART checks whether "RETURN" was pressed immediately after the "G". This is done by GETRET. If so, the address stored in PCL and PCH is used. These are SMON's internal program counters. Otherwise, the typed address is used.
+
+You can see how increasingly complex commands are built from simple routines. And that's the whole secret to writing extensive programs: Break down the problem (in this case, a user-friendly input) into tiny steps, then program and test each one individually.
+
+Let's take another look at how SMON processes instructions. In EXECUTE, we first set the stack pointer to the value it reached during the last BRK. Then, the "hidden commands" are checked first. We read directly from the screen for this. D3 contains the starting address of the current line in memory. Incidentally, besides the ones already mentioned, there are other "hidden commands" that will appear in later episodes. If there is no hidden command, we retrieve a character with GETCHRERR and store it in COMMAND. Now we check whether this character is in the instruction list (CMDTBL). CMDTBL, by the way, is located at the very top of memory, starting at $C00B. It ends with five zeros for later extensions. Directly after are the starting addresses of the corresponding routines in the order typical for the 6502: low byte first, then high byte. Take a look at this with M C00B. At the end of this table are another 10 zeros, because each byte in CMDTBL corresponds to two address bytes in the list (CMDS). If a command is found in CMDSEARCH, CMDEXEC is called as a subroutine. CMDEXEC then places the corresponding address bytes on the stack and executes an RTS, which—after the stack manipulation—now executes the desired instruction. Note that RTS always jumps to the address incremented by one; therefore, you must always add 1 to the addresses in CMDS when searching for the beginning of a routine.
+
+All instructions in SMON end with an RTS, meaning they jump to the JMP EXECUTE after CMDFOUND. This closes an infinite loop that always executes an instruction and then returns to the input. Next time, you will learn about LOAD, SAVE, and converting between different number systems.
+
+(Dietrich Weineck/N. Mann/gk)
+
+Table Start:-
+
+Notes on Typing
+
+Once again, we're presenting you with a DATA desert, but if you successfully navigate this section, you'll have completed more than half of the entire SMON program. To make typing and the subsequent—almost inevitable—debugging as easy as possible, we've divided the entire program into blocks of 256 bytes each, with each block having its own checksum. If you make a typo, an error message will appear indicating the block where the error is most likely located.
+
+Before the first "RUN" command, you should definitely save the program; otherwise, errors can cause your computer to crash, and all your efforts will have been for nothing.
+
+However, the checksum method doesn't detect one thing: extra zeros or commas. If you don't receive an error message and the program still doesn't run, first check whether all the DATA values ​​have actually been used up. To do this, type PRINT A in direct mode. The last number, 197, should now appear. If not, you have an extra zero or comma.
+
+Once the loader finally completes without errors to the READY stage, you can start SMON with SYS 49152. The screen colours will change, the register display will appear, and on the next line, a dot with a blinking cursor will be shown. Now try all the commands. But beware of all other commands. The error message for incorrect commands isn't working properly yet! Therefore, incorrect entries will, in most cases, cause the program to crash. This will change later in this series.
+
+Before you throw your computer out the window, one more thing: Starting with the next instalment, SMON will also be available ready-to-use from our reader service.
+
+And one last tip: The most important thing a budding machine programmer needs is a reset button. (Instructions for building or ready-made pushbuttons have been presented many times in the 64'er.) You'll notice it when you sit in front of your screen, tears streaming down your face, with no friendly blinking cursor in sight, and RUN/STOP RESTORE doing nothing even after you press the buttons through the casing. Don't despair, press RESET, restart SMON with SYS 49152, and you can continue working until the next crash...
+
+-:Table End
+
+Table Start:-
+
+Listing 1. The DATA Loader for SMON - Part 1
+
+10 REM **************************
+20 REM * *
+30 REM * SMON PART 1 *
+40 REM * BY N. MANN & D. WEINECK *
+50 REM * FLEETRADE 40 *
+60 REM * 2900 BREMEN *
+70 REM * TEL. +49 421 / 493090 *
+80 REM * *
+90 REM **************************
+100 FORI=0T08:READA:PR(I)=A:NEXT
+110 SA=49152:I=0
+120 PA=SA+256*I:CH=0
+130 FORJ=0T0255:READA:POKEPA+J,A:CH=CH+A:NEXT
+140 IFCH<>PR(I)THEN190
+150 I=I+1:IFI<8THEN120
+160PA=PA+256:CH=0
+170 FORJ=0T060:READA:POKEPA+J,A:CH=CH+A:NEXT
+180 IFCH=PR(I)THENEND
+190 PRINT "ERROR IN BLOCK" I+1:END
+191 REM
+192 REM *** BLOCK CHECKSUMS ***
+195 DATA20921,25604,31944,33700,36302,34378,34305,34639,7819
+200 REM
+210 REM *** BLOCK 1 ***
+220 REM
+230 DATA169,20,141,22,3,169,194,141,23,3,0,39,35,36,37,44,58,59,61,63,65,66
+240 DATA67,68,70,71,73,75,76,77,79,80,82,83,84,86,87,88,0,0,0,0,0,218,202,45
+250 DATA201,7,201,27,201,251,198,28,196,181,195,244,202,153,200,208,198,107
+260 DATA201,60,202,92,197,16,203,226,195,67,200,182,202,77,200,248,195,192
+270 DATA201,60,200,133,195,77,200,240,203,66,202,210,201,109,195,0,0,0,0,0
+280 DATA0,0,0,0,0,255,255,1,0,65,90,73,82,84,128,32,64,16,0,2,1,1,2,0,145,145
+290 DATA13,83,217,49,55,50,13,0,125,76,125,201,13,13,32,32,80,67,32,32,83,82
+300 DATA32,65,67,32,88,82,32,89,82,32,83,80,32,32,78,86,45,66,68,73,90,67,0
+310 DATA2,4,1,44,0,44,89,41,88,157,31,255,28,28,31,31,31,28,223,28,31,223,255
+320 DATA255,3,31,128,9,32,12,4,16,1,17,20,150,28,25,148,190,108,3,19,1,2,2
+330 DATA3,3,2,2,2,2,2,2,3,3,2,3,3,3,2,0,64,64,128,128,32,16,37,38,33,34,129
+340 DATA130,33,130,132,8,8,231,231,231,231
+350 REM
+360 REM *** BLOCK 2 ***
+370 REM
+380 DATA227,227,227,227,227,227,227,227,227,227,231,167,231,231,243,243,247
+390 DATA223,38,70,6,102,65,129,225,1,160,162,161,193,33,97,132,134,230,198
+400 DATA224,192,36,76,32,144,176,240,48,208,16,80,112,120,0,24,216,88,184,202
+410 DATA136,232,200,234,72,8,104,40,64,96,170,168,186,138,154,152,56,248,137
+420 DATA156,158,178,42,74,10,106,79,35,147,179,243,51,211,19,83,115,82,76,65
+430 DATA82,69,83,83,79,76,76,76,67,65,65,83,83,73,68,67,67,66,74,74,66,66,66
+440 DATA66,66,66,66,66,83,66,67,67,67,67,68,68,73,73,78,80,80,80,80,82,82,84
+450 DATA84,84,84,84,84,83,83,79,83,83,79,79,84,66,82,68,68,68,77,78,68,84,84
+460 DATA78,69,80,80,73,77,83,67,67,69,77,78,80,86,86,69,82,76,76,76,76,69,69
+470 DATA78,78,79,72,72,76,76,84,84,65,65,83,88,88,89,69,69,76,82,76,82,82,65
+480 DATA67,65,89,88,65,80,68,67,89,88,67,67,88,89,84,80,82,67,83,81,73,69,76
+490 DATA67,83,73,75,67,68,73,86,88,89,88,89,80,65,80,65,80,73,83,88,89,88,65
+500 REM
+510 REM *** BLOCK 3 ***
+520 REM
+530 DATA83,65,67,68,8,132,129,34,33,3B,32,128,3,32,28,20,20,16,4,12,216,169
+540 DATA8,141,176,2,169,4,141,175,2,169,6,141,32,208,141,33,208,169,3,141,134
+550 DATA2,162,5,104,157,168,2,202,16,249,173,169,2,208,3,206,168,2,206,169
+560 DATA2,186,142,174,2,169,82,76,255,194,32,194,194,240,11,32,126,194,141
+570 DATA169,2,165,252,141,168,2,96,162,164,32,128,194,32,128,194,208,28,32
+580 DATA126,194,169,254,133,253,169,255,133,254,32,194,194,208,12,141,119,2
+590 DATA230,198,96,32,126,194,44,162,251,32,141,194,149,1,32,154,194,149,0
+600 DATA232,232,96,32,202,194,201,32,240,249,201,44,240,245,208,3,32,202,194
+610 DATA32,175,194,10,10,10,10,133,180,32,202,194,32,175,194,5,180,96,201,58
+620 DATA144,2,105,8,41,15,96,32,202,194,201,32,240,249,198,211,96,32,207,255
+630 DATA198,211,201,13,96,32,207,255,201,13,208,248,169,63,32,210,255,174,174
+640 DATA2,154,162,0,134,198,32,81,195,161,209,201,39,240,17,201,58,240,13,201
+650 DATA59,240,9,201,44,240,5,169,46,32,210,255,32,202,194,201,46,240,249,133
+660 REM
+670 REM *** BLOCK 4 ***
+680 REM
+690 DATA172,41,127,162,32,221,10,192,240,5,202,208,248,240,194,32,21,195,76
+700 DATA214,194,138,10,170,232,189,41,192,72,202,189,41,192,72,96,165,252,32
+710 DATA42,195,165,251,72,74,74,74,74,32,53,195,104,41,15,201,10,144,2,105
+720 DATA6,105,48,76,210,255,169,13,32,210,255,138,76,210,255,32,76,195,169
+730 DATA32,76,210,255,169,13,76,210,255,133,187,132,188,160,0,177,187,240,6
+740 DATA32,210,255,200,208,246,96,230,251,208,2,230,252,96,169,14,141,134,2
+750 DATA141,32,208,169,6,141,33,208,169,55,133,1,174,174,2,154,76,116,164,160
+760 DATA192.169,140,32,86,195,162,59,32,64,195,173,168,2,133,252,173,169,2
+770 DATA133,251,32,35,195,32,76,195,162,251,189,175,1,32,42,195,32,76,195,232
+780 DATA208,244,173,170,2,76,208,195,32,78,194,162,251,32,202,194,32,154,194
+790 DATA157,175,1,232,208,244,32,76,195,189,170,2,76,208,195,133,170,169,32
+800 DATA160,9,32,210,255,6,170,169,48,105,0,136,208,244,96,32,73,194,174,174
+
+-:Table End
+
+-: Page 3 :-
+
+Table Start:-
+
+810 DATA2,154,162,250,189,174,1,72,232,208,249,104,168,104,170,104,64,32,100
+820 DATA194,162,58,32,64
+830 REM
+840 REM *** BLOCK 5 ***
+850 REM
+860 DATA195,32,35,195,160,32,162,0,32,76,195,161,251,32,42,195,161,251,32,57
+870 DATA196,208,241,32,93,196,144,224,96,32,126,194,160,32,162,0,32,202,194
+880 DATA32,154,194,129,251,193,251,240,3,76,209,194,32,57,196,208,236,96,201
+890 DATA32,144,12,201,96,144,10,201,192,144,4,201,219,144,4,169,46,41,63,41
+900 DATA127,145,209,173,134,2,145,243,32,103,195,200,192,40,96,32,111,196,76
+910 DATA102,196,32,103,195,165,251,197,253,165,252,229,254,96,32,148,196,32
+920 DATA134,196,240,14,32,134,196,240,251,201,32,208,5,141,119,2,230,198,96
+930 DATA32,228,255,72,32,225,255,240,2,104,96,76,214,194,160,40,36,172,16,246
+940 DATA132,200,132,208,169,255,32,195,255,169,255,133,184,133,185,173,175
+950 DATA2,133,186,32,192,255,162,0,134,211,202,32,201,255,32,207,255,32,210
+960 DATA255,201,13,208,246,32,204,255,16 9,145,76,210,255,160,0,177,251,36,170
+970 DATA4B,2,80,12,162,31,221,60,193,240,47,202,224,21,208,246,162,4,221,73
+980 DATA193,240,33,221,77,193,240,30,202,208,243,162,56,221,17,193,240,20,202
+990 DATA224,22,208,246,177,251,61,251 
+1000 REM
+1010 REM *** BLOCK 6 ***
+1020 REM
+1030 DATA192,93,17,193,240,5,202,208,243,162,0,134,173,138,240,15,162,17,177
+1040 DATA251,61,181,192,93,198,192,240,3,202,208,243,189,234,192,133,171,189
+1050 DATA216,192,133,182,166,173,96,160,1,177,251,170,200,177,251,160,16,196
+1060 DATA171,208,7,32,74,197,160,3,208,2,164,182,142,174,0,141,175,0,96,160
+1070 DATA1,177,251,16,1,136,56,101,251,170,232,240,1,136,152,101,252,96,162
+1080 DATA0,134,170,32,100,194,32,140,197,165,173,201,22,240,12,201,47,240,8
+1090 DATA201,33,240,4,201,48,208,13,32,81,195,162,35,169,45,32,210,255,202,208
+1100 DATA250,32,93,196,144,217,96,162,44,32,64,195,32,35,195,32,76,195,32,117
+1110 DATA198,32,203,196,32,76,195,177,251,32,42,195,32,76,195,200,196,182,208
+1120 DATA243,169,3,56,229,182,170,240,9,32,73,195,32,76,195,202,208,247,169
+1130 DATA32,32,210,255,160,0,166,173,208,17,162,3,169,42,32,210,255,202,208
+1140 DATA248,36,170,48,133,76,106,198,36,170,80,41,169,8,36,171,240,35,177,251
+1150 DATA41,252,133,173,200,177,251,10,168,185,60,3,141,174,0,200,185,60,3,141
+1160 DATA175,0,32,190,198,164
+1170 REM
+1180 REM *** BLOCK 7 ***
+1190 REM
+1200 DATA182,32,147,198,32,203,196,189,91,193,32,210,255,189,147,193,32,210
+1210 DATA255,189,203,193,32,210,255,169,32,36,171,240,3,32,73,195,162,32,169
+1220 DATA4,36,171,240,2,162,40,138,32,21 0,255,36,171,80,5,169,35,32,210,255
+1230 DATA32,44,197,136,240,22,169,8,36,171,240,7,169,77,32,210,255,160,1,185
+1240 DATA173,0,32,42,195,136,208,247,160,3,185,172,192,36,171,240,9,185,175
+1250 DATA192,190,178,192,32,66,195,136,208,237,165,182,32,103,195,56,233,1,208
+1260 DATA248,96,164,211,169,32,145,209,200,192,40,144,249,96,228,171,208,4,5
+1270 DATA173,133,173,96,185,173,0,145,251,209,251,208,4,136,16,244,96,104,104
+1280 DATA96,208,28,138,5,171,133,171,169,4,133,181,32,207,255,201,32,240,13
+1290 DATA201,36,240,9,201,40,240,5,201,44,240,1,96,198,181,208,232,96,224,24
+1300 DATA48,14,173,174,0,56,233,2,56,229,251,141,174,0,160,64,96,32,126,194
+1310 DATA133,253,165,252,133,254,32,81,195,32,228,198,48,251,16,246,169,0,133
+1320 DATA211,32,76,195,32,35,195,32,76,195,32,207,255,169,1,133,211,162,128
+1330 DATA20B,5,162,128,142,177
+1340 REM
+1350 REM *** BLOCK 8 ***
+1360 REM
+1370 DATA2,134,170,32,126,194,169,37,133,200,44,177,2,16,8,162,10,32,207,255
+1380 DATA202,208,250,169,0,141,177,2,32,161,198,201,70,208,22,70,170,104,104
+1390 DATA162,2,181,250,72,181,252,149,250,104,149,252,202,208,243,76,100,197
+1400 DATA201,46,208,17,32,154,194,160,0,145,251,209,251,208,4,32,103,195,200
+1410 DATA136,96,162,253,201,77,208,25,32,154,194,160,0,201,63,176,239,10,168
+1420 DATA165,251,153,60,3,165,252,200,153,60,3,32,161,198,149,169,224,253,208
+1430 DATA4,169,7,133,183,232,208,240,162,56,165,166,221,91,193,240,5,202,208
+1440 DATA246,202,96,165,167,221,147,193,208,244,165,168,221,203,193,208,237
+1450 DATA189,17,193,133,173,32,161,198,160,0,224,32,16,9,201,32,208,8,189,77
+1460 DATA193,133,173,76,49,200,160,8,201,77,240,32,160,64,201,35,240,26,32,157
+1470 DATA194,141,174,0,141,175,0,32,161,198,160,32,201,48,144,27,201,71,176
+1480 DATA23,160,128,19B,211,32,161,198,32,157,194,141,174,0,32,161,198,192,8
+1490 DATA240,3,32,190,198,132,171,162,1,201,88,32,154,198,162,4,201,41,32,154
+1500 DATA198,162,2,201,89,32,154,198
+1510 REM
+1520 REM *** BLOCK 9 ***
+1530 REM
+1540 DATA165,173,41,13,240,10,162,64,169,8,32,129,198,169,24,44,169,28,162,130
+1550 DATA32,129,198,160,8,165,173,201,32,240,9,190,3,194,185,11,194,32,129,198
+1560 DATA136,208,244,165,171,16,1,200,200,32,138,198,198,183,165,183,133,211
+1570 DATA76,151,197
+
+READY.
+
+Listing 1. The DATA Loader for SMON - Part 1 (Conclusion)
+
+-:Table End
+
+
+-: Page 4 :-
+
+
+Table Start:-
+
+Listing 2. The SMON Assembler Source Code - Part 1
+
+;********************************************
+;* SM0N *
+;* *
+;* MACHINE LANGUAGE MONITOR *
+;* *
+;* PART 1 *
+;* *
+;* AUGUST 1984 *
+;* *
+;* BY N.MANN & D. WEINECK *
+;* TEL. 0421 / 493090 *
+;* *
+;********************************************
+;
+;
+					.BA $C000
+					.OS
+					.CE
+PCL					.DE $FB
+PCH					.DE PCL+1
+FLAG 				.DE $AA
+COMMAND				.DE $AC
+;
+BEFCODE				.DE $AD
+ADRCODE				.DE $AB
+BEFLEN				.DE $86
+LOPER				.DE $AE
+HOPER				.DE LOPER+1
+;
+PCHSAVE				.DE $02A8
+PCHSAVE				.DE PCHSAVE+1
+SRSAVE				.DE PCHSAVE+2
+AKSAVE				.DE PCHSAVE+3
+XRSAVE				.DE PCHSAVE+4
+YRSAVE				.DE PCHSAVE+5
+SPSAVE				.DE PCHSAVE+6
+;
+PRINTNR				.DE PCHSAVE+7
+IO.NR				.DE PCHSAVE+8
+MEM					.DE PCHSAVE+9
+;
+TASTBUF				.DE $0277
+COLOR				.DE $0286
+BUF1				.DE $033C
+BUF2				.DE BUF1+$30
+BUF3				.DE BUF2+$30
+BUF4				.DE BUF3+$30
+;
+READY				.DE $A474
+BORDER				.DE $D020
+BKGRND				.DE $D021
+OPEN				.DE $FFC0
+CLOSE				.DE $FFC3
+CHKOUT				.DE $FFC9
+CLRCHN				.DE $FFCC
+CHRIN				.DE $FFCF
+CHROUT				.DE $FFD2
+STOPT				.DE $FFE1
+GETIN				.DE $FFE4
+;
+;
+SETBREAK			LDA #L,BREAK
+					STA $0316
+					LDA #H,BREAK
+					STA $0317
+					BRK
+;
+CMOTBL				.BY $27
+					.BY '#$%,:;+?A'
+					.BY 'BCDFGIKL'
+					.BY 'MOPRSTVWX'
+					.BY $00 $00 $00 $00 $00
+;
+CMOS				.SE TICK-1
+					.SE BEFDEC-1
+					.SE BEFHEX-1
+					.SE BEFBIN-1
+					.SE KOMMA-1
+					.SE COLON-1
+					.SE SEMIS-1
+					.SE COMP-1
+					.SE ADDSUB-1
+					.SE ASSEMBLER-1
+					.SE BDATA-1
+					.SE CONVERT-1
+					.SE DISASSEM-1
+					.SE FINDE-1
+					.SE GO-1
+					.SE IO.SET-1
+					.SE KONTROLLE-1
+					.SE LOADSAVE-1
+					.SE MEMDUMP-1
+					.SE OCCUPY-1
+					.SE SETPRINTER-1
+					.SE REGISTER-1
+					.SE LOADSAVE-1
+					.SE TRACE-1
+					.SE VERSCHIEBE-1
+					.SE WRITE-1
+					.SE EXIT-1
+					.DS 10
+;
+OFFSET				.BY $FF $FF $01 $00
+;
+FINDTAB				.BY 'AZIRT'
+FINDFLG				.BY $80 $20 $40 $10 $00
+FINDFLG1			.BY $02 $01 $01 $02 $00
+;
+SYS172				.BY $91 $91 $0D $53
+					.BY $09 $31 $37 $32 $0D
+;
+DATATAB				.BY $00 $7D $4C
+					.SE DATALOOP
+;
+REGHEAD				.BY $0D $0D $20 $20
+					.BY 'PC  SR AC XR YR SP'
+					.BY '  NV-BDIZC' $00
+;
+					.BA $C214
+;
+BREAK				CLD
+					LDA #08
+					STA IO.NR
+					LDA #04
+					STA PRINTNR
+					LDA #06
+					STA BORDER
+					STA BKGRND
+BREAK1				LDA #03
+					STA COLOR
+					LDX #$05
+BREAK2				PLA
+					STA PCHSAVE,X
+					DEX
+					BPL BREAK2
+					LDA PCLSAVE
+					BNE BREAK3
+					DEC PCHSAVE
+BREAK3				DEC PCLSAVE
+					TSX
+					STX SPSAVE
+					LDA #'R'
+					JMP CMDSTORE
+;
+GETSTART			JSR GETRET
+					BEQ GETSTRTS
+GETSTART1			JSR GETADR1
+					STA PCLSAVE
+					LDA $PCH
+					STA PCHSAVE
+GETSTRTS			RTS
+;
+GET3ADR				LDX #$A4
+					JSR GETADR
+					JSR GETADR
+					BNE GETADR
+;
+GET1.2ADR			JSR GETADR1
+					LDA #$FE
+					STA *$FD
+					LDA #$FF
+					STA *$FE
+					JSR GETRET
+					BNE GETADR
+					STA TASTBUF
+					INC *$C6
+					RTS
+;
+GET2ADR				JSR GETADR1
+					.BY $2C
+GETADR1				LDX #$FB
+;
+GETADR				JSR GETBYT
+					STA *$01,X
+					JSR GETBYT1
+					STA *$00,X
+					INX
+					INX
+					RTS
+;
+GETBYT				JSR GETCHRERR
+					CMP #$20
+					BEQ GETBYT
+					CMP #$2C
+					BEQ GETBYT
+					BNE ASCHEX
+;
+GETBYT1				JSR GETCHRERR
+ASCHEX				JSR ASCHEX1
+					ASL A
+					ASL A
+					ASL A
+					STA *$B4
+					JSR GETCHRERR
+					JSR ASCHEX1
+					ORA *$84
+					RTS
+ASCHEX1				CMP #$3A
+					BCC ASCHEX2
+					ADC #$08
+ASCHEX2				AND #$0F
+					RTS
+;
+SKIPSPACE			JSR GETCHRERR
+					CMP #$20
+					BEQ SKIPSPACE
+					DEC *$D3
+					RTS
+;
+GETRET				JSR CHRIN
+					DEC *$D3
+					CMP #$0D
+GETBRTS				RTS
+;
+GETCHRERR			JSR CHRIN
+					CMP #$0D
+					BNE GETBRTS
+ERROR				LDA #'?'
+					JSR CHROUT
+EXECUTE				LDX SPSAVE
+					TXS
+					LDX #$00
+					STX *$C6
+					JSR RETURN
+					LDA ($D1,X)
+					CMP #'''
+					BEQ EXEC1
+					CMP #':'
+					BEQ EXEC1
+					CMP #';'
+					BEQ EXEC1	
+					CMP #','
+					BEQ EXEC1
+					LDA #'.'
+					JSR CHROUT
+EXEC1				JSR GETCHRERR
+					CMP #'.'
+					BEQ EXEC1
+CMOSSTORE			STA *COMMAND
+					AND #$7F
+					LDX #CMOS-CMDTBL
+CMOSSEARCH			CMP SMDTBL-1,X
+					BEQ CMDFOUND
+					DEX
+					BNE CMOSSEARCH
+					BEQ ERROR
+CMDFOUND			JSR CMDEXEC
+					JMP EXECUTE
+;
+CMDEXEC				TXA
+					ASL A
+					TAX
+					INX
+					LDA CMOS-2,X
+					PHA
+					DEX
+					LDA CMOS-2,X
+					PHA
+					RTS
+;
+HEXOUT				LDA *PCH
+					JSR HEXOUT1
+					LDA *PCL
+HEXOUT1				PHA
+					LSR A
+					LSR A
+					LSR A
+					LSR A
+					JSR HEXOUT2
+					PLA
+					AND #$0F
+HEXOUT2				CMP #$0A
+					BCC HEXOUT3
+					ADC #$06
+HEXOUT3				ADC #$30
+					JMP CHROUT
+;
+CHARRET				LDA #$0D
+CHARR1				JSR CHROUT
+					TXA
+					JMP CHROUT
+;
+SPACE2				JSR SPACE
+SPACE				LDA #$20
+					JMP CHROUT
+;
+RETURN				LDA #$0D
+					JMP CHROUT
+;
+PRINT				STA *$BB
+					STY *$BC
+					LDY #$00
+PRINT1				LDA ($BB),Y
+					BEQ PRINT2
+					JSR CHROUT
+					INY
+					BNE PRINT1
+PRINT2				RTS
+;
+PCINC				INC *PCL
+					BNE PCRTS
+					INC *PCH
+PCRTS				RTS
+;
+;**********
+EXIT				LDA #$0E
+					STA COLOR
+					STA BORDER
+					LDA #$06
+					STA BKGRND
+					LDA #$37
+					STA *$01
+					LDX SPSAVE
+					TXS
+					JMP READY
+;
+;**********
+REGISTER			LDY #H,REGHEAD
+					LDA #L,REGHEAD
+					JSR PRINT
+					LDX #';'
+					JSR CHARRET
+REGISTER1			LDA PCHSAVE
+					STA *PCH
+					LDA PCLSAVE
+					STA *PCL
+					JSR HEXOUT
+					JSR SPACE
+					LDX #$FB
+REGISTER2			LDA SRSAVE-$FB,X
+					JSR HEXOUT1
+					JSR SPACE
+					INX
+					BNE REGISTER2
+					LDA SRSAVE
+					JMP CHANGBIN
+;
+;**********
+SEMIS				JSR GETSTART1
+					LDX #$FB
+SEMIS1				JSR GETCHRERR
+					JSR GETBYT1
+					STA SRSAVE-$FB,X
+					INX
+					BNE SEMIS1
+					JSR SPACE
+					LDA SRSAVE,X
+					JMP CHANGBIN
+;
+CHANGBIN			STA *FLAG
+					LDA #$20
+					LDY #$09
+CHANGB1				JSR CHROUT
+					ASL *FLAG
+					LDA #$30
+					ADC #$00
+					DEY
+					BNE CHANGB1
+					RTS
+;
+;**********
+GO					JSR GETSTART
+GO1					LDX SPSAVE
+					TXS
+					LDX #$FA
+GO2					LDA PCHSAVE-$FA,X
+					PHA
+					INX
+					BNE GO2
+					PLA
+					TAY
+					PLA
+					TAX
+					PLA
+					RTI
+;**********
+MEMDUMP				JSR GET1,2ADR
+MEMDUMP1			LDX #':'
+					JSR CHARRET
+					JSR HEXOUT
+					LDY #32
+					LDX #$00
+MEMDUMP2			JSR SPACE
+					LDA (PCL,X)
+					JSR HEXOUT1
+					LDA (PCL,X)
+					JSR ASCII
+					BNE MEMDUMP2
+					JSR CONTIN
+					BCC MEMDUMP1
+					RTS
+;**********
+COLON				JSR GETADR1
+					LDY #32
+					LDX #$00
+COLON1				JSR GETCHRERR
+					JSR GETBYT1
+					STA (PCL,X)
+					CMP (PCL,X)
+					BEQ COLON2
+					JMP ERROR
+COLON2				JSR ASCII
+					BNE COLON1
+					RTS
+;
+ASCII				CMP #$20
+					BCC ASCII1
+					CMP #$60
+					BCC ASCII2
+					CMP #$C0
+					BCC ASCII1
+					CMP #$DB
+					BCC ASCII3
+ASCII1				LDA #'.'
+ASCII2				AND #$3F
+ASCII3				AND #$7F
+					STA ($D1),Y
+					LDA COLOR
+					STA ($F3),Y
+					JSR PCINC
+					INY
+					CPY #40
+					RTS
+;
+CONTIN				JSR TASTE
+					JMP CMPEND1
+;
+CMPEND				JSR PCINC
+CMPEND1				LDA *PCL
+					CMP *$FD
+					LDA *PCH
+					SBC *$FE
+					RTS
+;
+TASTE				JSR PRINTER1
+TASTE1				JSR SCANKEY
+					BEQ TASTRTS
+TASTE2				JSR SCANKEY
+					BEQ TASTE2
+					CMP #$20
+					BNE TASTRTS
+					STA TASTBUF
+					INC *$C6
+TASTRTS				RTS
+;
+SCANKEY				JSR GETIN
+					PHA
+					JSR STOPT
+					BEQ STOP
+					PLA
+SCANRTS				RTS
+STOP				JMP EXECUTE
+;
+PRINTER1			LDY #40
+PRINTER				BIT *COMMAND
+					BPL SCANRTS
+					STY *$C8
+					STY *$D0
+					LDA #$FF
+					JSR CLOSE
+					LDA #$FF
+					STA *$B8
+					STA *$B9
+					LDA PRINTNR
+					STA *$BA
+					JSR OPEN
+					LDX #$00
+					STX *$D3
+					DEX
+					JSR CHKOUT
+PRLOOP				JSR CHRIN
+					JSR CHROUT
+					CMP #$0D
+					BNE PRLOOP
+					JSR CLRCHN
+					LDA #$91
+					JMP CHROUT
+;
+;
+;
+;
+;
+;
+;*****************************
+;*                           *
+;*           SMON            *
+;*                           *
+;*  MACHINE LANGUAGE MONITOR *
+;*                           *
+;*****************************
+
+-:Table End
+
+
+-: Page 5 :-
