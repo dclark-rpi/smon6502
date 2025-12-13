@@ -10,7 +10,7 @@ The rest is pretty much the same....
 
 
 SMON is a machine language monitor and direct assembler for the Commodore 64,
-published in 1984 in "64'er" magazine (for more info see the [credit section](https://github.com/dhansel/smon6502#credits) below).
+published in 1984 in "64'er" magazine (for more info see the [credit section](https://github.com/dclark-rpi/smon6502#credits) below).
 
 In a nutshell, SMON provides the following functionality:
   - View and edit data in memory
@@ -209,6 +209,7 @@ There are three basic settings that can be changed by modifying the `config.asm`
       The RX and TX pins can also be configured at the top of `uart_6522.asm`.
     - *Motorola MC6850*. If you choose this UART in the config.asm file you can configure it in the `uart_6850.asm` file,
       most importantly the base address (default is $8100) and the serial parameters.
+ - *RP6502 RIA*. If you choose this UART_TYPE in the config.asm file make sure to change the following VIA := $FFD0 in the same file.
 
 
 ## Compiling SMON 6502
@@ -222,6 +223,33 @@ do the following:
 
 Then just burn the generated smon.bin file to the EEPROM using whichever programmer
 you have been using.
+
+If you are using rumbledethumps [RP6502 Picocomputer](https://picocomputer.github.io), then I have included the sdk build environment that I used that, I adapted the one provided by [Kai Wells](https://github.com/quells/wozmon.rp6502) that he used for his wozmon port.
+
+ 1. Download the `*.asm` files from this repository (there are only 7)
+  2. Download the VASM compiler ([vasm6502_oldstyle_Win64.zip](http://sun.hasenbraten.de/vasm/bin/rel/vasm6502_oldstyle_Win64.zip)).
+  3. Extract `vasm6502_oldstyle.exe` from the archive and put it into the same directory as the .asm files
+  4. Make sure you have installed python 3 and the pyserial module.
+
+ ```
+$ pip install pyserial
+```
+
+  5. Finally, run `upload.py` to build and transfer the program to your Picocomputer by running the following command on the command line:
+
+```
+$ python3 upload.py
+```
+ 
+This will compile using [vasm](http://sun.hasenbraten.de/vasm/), write that out to a RP6502 ROM file, then attempt to upload to a Picocomputer attached via USB (you will need to modify the Device path of the Picocomputer serial connection in upload.py depending on your operating systems USB requirements).
+
+I have provided a cut down build.py that just compiles the source code and produces the new .rp6502 executable in the folder the command line is pointing to. To just build the program run the following:
+
+```
+$ python3 build.py
+```
+
+I can confirm that the above instructions worked on Windows 10 to compile the code, to transfer to the RP6502 Picocomputer by USB Flash Drive.
 
 ## Running Commodore BASIC
 
@@ -259,3 +287,7 @@ and (heavily) adapted from the VIC-20 kernal, using Lee Davidson's
 The [code](https://github.com/dhansel/smon6502/blob/main/uart_6551.asm) for handling RS232 communication via the 
 65C51N ACIA chip was put together and tested by Chris McBrien, based on the ACIA code from 
 [Adrien Kohlbecker](https://github.com/adrienkohlbecker/65C816/blob/ep.30/software/lib/acia.a).
+
+The code for the RP6502 Picocomputer port was provided by [Jim Morris](https://github.com/wolfmanjm/smon6502).
+
+The bug in the Occupy command stopping the full memory range from being changed is fixed, also the missing call to the reset kernel function was added back into the code to allow it to properly initialise the processor and clear the line buffer. All changes to Jim Morris port to the RP6502  was provided by [David Clark](https://github.com/dclark-rpi/)
