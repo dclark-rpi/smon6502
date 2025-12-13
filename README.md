@@ -249,7 +249,7 @@ I have provided a cut down build.py that just compiles the source code and produ
 $ python3 build.py
 ```
 
-I can confirm that the above instructions worked on Windows 10 to compile the code, to transfer to the RP6502 Picocomputer by USB Flash Drive.
+I can confirm that the above instructions worked on Windows 10 to compile the code and to transfer to the RP6502 Picocomputer by USB Flash Drive.
 
 ## Running Commodore BASIC
 
