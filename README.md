@@ -209,7 +209,7 @@ There are three basic settings that can be changed by modifying the `config.asm`
       The RX and TX pins can also be configured at the top of `uart_6522.asm`.
     - *Motorola MC6850*. If you choose this UART in the config.asm file you can configure it in the `uart_6850.asm` file,
       most importantly the base address (default is $8100) and the serial parameters.
- - *RP6502 RIA*. If you choose this UART_TYPE in the config.asm file make sure to change the following VIA := $FFD0 in the same file.
+    - *RP6502 RIA*. If you choose this UART_TYPE in config.asm, make sure to change the VIA address to the following  'VIA := $FFD0' in the same file.
 
 
 ## Compiling SMON 6502
@@ -224,7 +224,7 @@ do the following:
 Then just burn the generated smon.bin file to the EEPROM using whichever programmer
 you have been using.
 
-If you are using rumbledethumps [RP6502 Picocomputer](https://picocomputer.github.io), then I have included the sdk build environment that I used that, I adapted the one provided by [Kai Wells](https://github.com/quells/wozmon.rp6502) that he used for his wozmon port.
+If you are using rumbledethumps [RP6502 Picocomputer](https://picocomputer.github.io), then I have included the sdk build environment that I used that, I adapted the one provided by [Kai Wells](https://github.com/quells/wozmon.rp6502), that was used for his wozmon port.
 
  1. Download the `*.asm` files from this repository (there are only 7)
   2. Download the VASM compiler ([vasm6502_oldstyle_Win64.zip](http://sun.hasenbraten.de/vasm/bin/rel/vasm6502_oldstyle_Win64.zip)).
