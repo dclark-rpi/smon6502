@@ -290,4 +290,4 @@ The [code](https://github.com/dhansel/smon6502/blob/main/uart_6551.asm) for hand
 
 The code for the RP6502 Picocomputer port was provided by [Jim Morris](https://github.com/wolfmanjm/smon6502).
 
-The bug in the Occupy command stopping the full memory range from being changed is fixed, also the missing call to the reset kernel function was added back into the code to allow it to properly initialise the processor and clear the line buffer. All changes to Jim Morris port to the RP6502  was provided by [David Clark](https://github.com/dclark-rpi/)
+The bug in the Occupy command stopping the full memory range from being changed is fixed, also the missing call to the reset kernel function was added back into the code to allow it to properly initialise the processor and clear the line buffer. All changes to Jim Morris's port to the RP6502  was provided by [David Clark](https://github.com/dclark-rpi/)
