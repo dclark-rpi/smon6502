@@ -209,7 +209,7 @@ There are three basic settings that can be changed by modifying the `config.asm`
       The RX and TX pins can also be configured at the top of `uart_6522.asm`.
     - *Motorola MC6850*. If you choose this UART in the config.asm file you can configure it in the `uart_6850.asm` file,
       most importantly the base address (default is $8100) and the serial parameters.
-    - *RP6502 RIA*. If you choose this UART_TYPE in config.asm, make sure to change the VIA address to the following  'VIA := $FFD0' in the same file.
+    - *RP6502 RIA*. If you choose this UART_TYPE in config.asm, make sure to change the VIA address to the following  `VIA := $FFD0` in the same file.
 
 
 ## Compiling SMON 6502
