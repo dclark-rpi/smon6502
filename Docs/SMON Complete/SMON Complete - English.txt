@@ -1,0 +1,1095 @@
+SMON - Complete
+
+The strengths of this super machine language monitor lie primarily in its powerful search and trace commands for testing machine language programs. In addition to the complete listing and manual, including a table of all functions and a table of important entry addresses, you'll find two extensions: a complete disk monitor and a disassembler that even disassembles illegal opcodes.
+
+A program that even professionals enjoy working with.
+
+I still vividly remember our first steps in machine language. Equipped with an instruction list for the 6502 and a "mini-monitor" written in BASIC, we created programs that could add 3 and 5 and store the result in memory. To do this, we had to find the instruction codes in the list and then "POKE" them into memory. Every jump had to be calculated manually, and every incorrectly selected instruction led to a program crash. The first disassembler — a program for displaying machine instructions in assembly language 
+was a revelation for us. From then on, we could analyze machine code and learn from it. Understanding machine language requires, even more so than with other languages, understanding of existing programs and acquiring the most important techniques.
+
+Over time, our needs grew, and we needed an assembler to try out our newfound knowledge. At first, it was another BASIC program — slow and not very user-friendly, but it worked. We wrote our first small routines, primarily to adapt existing machine code to our own needs. With AMON for the VC 20, we finally got a monitor that fulfilled (almost) all our requirements. However, when we switched to the C64, we discovered that there was nothing available for this computer that satisfied us. The only solution: to program ourselves.
+
+And so, over the course of a year, SMON was born. Originally, we only intended to program AMON's functions for the C64, but it didn't stop there. We kept adding new commands and routines until we were finally satisfied.
+
+What does SMON offer?
+
+First, it includes everything that's considered "standard": a memory dump, which displays the memory contents in hexadecimal bytes, with editing capabilities; a disassembler with editing capabilities; and routines for loading, saving, and running machine code. In addition, there's a small direct assembler that even handles labels, commands for moving data in memory with and without address conversion, and routines for converting between hexadecimal, decimal, and binary numbers. However, SMON's real strength undoubtedly lies in its powerful search routines and, above all, its trace mode. This allows machine code to be executed and monitored step by step.
+
+The monitor requires hexadecimal notation for all inputs; that is, in addition to the numbers 0 through 9, the letters A (for decimal 10) through F (for decimal 15) are also used.
+
+When entering addresses, the following must be observed: 
+
+[ANFADR] represents the exact starting address. 
+[ENDADR] represents the end address of the selected range plus 1. 
+
+Normally, input with or without spaces is permitted. Any exceptions to this rule will be specifically indicated. First, type the main program (Listing 1) using MSE. 
+If SMON is on your disk, it can be loaded with LOAD "SMON$C000",8,1 and started with 
+the command SYS 49152. However, type NEW before the SYS command to prevent a subsequent "OUT OF MEMORY" error.
+
+Assembling
+
+A [ANFADR]
+Assembly begins at the specified address
+Example:
+
+A 4000 Start at address $4000
+
+After pressing "RETURN", the selected address appears on the screen with a blinking cursor. The commands are entered as shown by the disassembler:
+
+LDY #00 or LDA 400E,Y, and so on. Pressing "RETURN" completes the line input.
+
+If an error occurs, the cursor returns to the starting position. Otherwise, the command is disassembled and listed after the hexadecimal bytes are output.
+
+To correct previous lines, move the cursor back to the starting position
+(after the address), rewrite the command, and after pressing "RETURN", move the cursor back to the last line. If you do not yet know the target addresses for jumps (branch commands, JSR, and JMP), simply enter so-called "labels".
+
+A label consists of the letter "M" (for label) and a two-digit hexadecimal number from 01 to 30.
+
+Example: BCC M01
+
+When you reach the target address for this jump, mark it with this "label".
+
+Example: M01 LDY #00
+
+The assembler accepts individual bytes by marking them with a dot: .00 or .AB 
+In this mode, the inputs are not disassembled.
+
+After assembly is complete, press "F" You will then see all your inputs listed again and can correct them as needed, following the disassembler's instructions.
+
+Try the following example:
+
+A 4000
+
+The assembler will respond with "4000" and a blinking cursor. Now enter the following (the addresses will appear automatically):
+
+4000 LDY #00
+4002 LDA 400E,Y
+4005 JSR FFD2
+4008 INY
+4009 CPY #12
+400B BCC 4002
+400D BRK
+
+The following bytes are entered as described, separated by a period. They are not disassembled.
+
+400E .OD
+400F .OD
+4010 .53
+4011 .4D
+4012 .4F
+4013 .4E
+4014 .20
+4015 .49
+4016 .53
+4017 .54
+4018 .20
+4019 .53
+401A .55
+4018 .50
+401C .45
+401D .52
+401E .OD
+401F .OD
+
+Then press "F". Your program will be listed again. Now start it with "G 4000". Text will appear on the screen - be surprised.
+
+
+Disassemble
+
+D [ANFADR,ENDADR]
+disassembles the range from ANFADR to ENDADR, where ENDADR does not need to be entered. If no end address is entered, only one line appears initially:
+
+ADR    HEXBYTES     COMMAND
+4000   A0 00        LDY #00
+
+Pressing the SPACE key displays the next command in the same manner. For continuous output, press RETURN. The output will then continue until another key is pressed or ENDADR is reached. Press RUN/STOP to return to input mode at any time.
+
+The comma that appears before the address on the screen is a hidden command. It does not need to be entered, as it is automatically displayed during disassembly. This allows for easy modification of the program. Move the cursor to the command to be changed and overwrite it with the new one. If you now press "RETURN", SMON recognizes the comma as an instruction and executes it in memory. Make sure, however, that the new instruction has the same length (in bytes) and pad it with "NOP's" if necessary. To check, you can disassemble the modified section again.
+
+As an example, disassemble the program (see instruction "A") starting at 4000 ("D 4000 4011"). Now change the first instruction to LDY #01. The change is evident because the HEX bytes automatically adopt the new value. Now start the program again with "G 4000". The text now appears on the screen with only one line spacing.
+
+Starting a machine program (Go)
+
+G [ADDRESS]
+starts a machine program that begins at ADDRESS. The program must be terminated with a BRK instruction so that a return to SMON is possible. If no address is entered after "G", SMON uses the address reached with the last BRK command, which appears as PC in the register output. The "R" command (see below) is used to set the registers to the desired values beforehand.
+
+Memory Dump
+
+M [ANFADR ENDADR]
+outputs the hexadecimal values of the memory location along with the corresponding ASCII characters. Also specifying an end address is optional. Output control is the same as during disassembly.
+
+Example:
+M 4000 outputs the contents of memory locations $4000 to $4007. Proceed as with disassembly using SPACE or RETURN. The bytes can also be modified by overwriting, but not the ASCII characters. This is due to the colon, which is output at the beginning of each line — another "hidden command." 
+If your modification cannot be executed, for example, because you are trying to write to ROM, a "?" will be displayed as an error message.
+
+Register Display
+
+R displays the current status of the most important 6510 registers: 
+
+Program Counter (PC) 
+Status Register (SR) 
+Accumulator     (AC) 
+X Register      (XR) 
+Y Register      (YR)
+Stack Pointer   (SP)
+
+The individual flags of the Status Register are also displayed, with a 1 for "set" 
+and a 0 for "not set." 
+Overwriting these flags sets the contents to a desired value. 
+However, the flags cannot be changed individually, only by overwriting the value of SR.
+
+Exit
+X returns to BASIC. 
+
+All BASIC pointers are preserved. Therefore, you can, for example, continue directly in the program if you have checked some memory locations with SMON in the meantime.
+
+Try out all the instructions described so far and familiarize yourself with SMON. Also, work through the assembly programming course in this issue. 
+All the examples are tailored for SMON.
+
+
+Exit I/O SET
+
+IO 1 sets the device number for LOAD and SAVE to 1 (cassette). 
+All loading and saving operations will now be performed on the specified device. 
+The default device number is 8 (for the floppy drive, this is IO 8). 
+Therefore, if you are only working with the floppy drive, you do not need this command.
+
+LOAD
+L"name" loads a program from the specified device (as described above) into memory at its original address. The BASIC pointers remain unaffected during this loading process; that is, they are not modified.
+
+Example: 
+Our monitor should be located at its original address ($C000) in memory. Therefore, you only need to load it with "L"SMON" to make it appear there. If you ever want to load a program to a different address than its original one, SMON offers the following option: 
+
+"L"name" ADDRESS" loads a program to the specified address. 
+
+Please take our last test program again and enter it in the assembler starting at address $4000. Save it with "S"SUPERTEST" 4000 4023" and then load it
+
+1. to the original address (L"SUPERTEST") and
+2. to a different address (for example, to $5000 with L"SUPERTEST" 5000).
+
+Next, use the disassembler command to examine both routines. You will find that while both programs look identical except for the BRANCH instructions, the program at $5000 cannot function because it uses an incorrect address (5002 LDA 400E,Y). 
+
+Another example: 
+An autostart program begins at $0120, but this area cannot be examined because it contains the processor stack (in the range of $0100 to $01FF), which is modified by the processor itself. If you now enter L"name" 4120, the program will subsequently be located at $4120 (not at the original address $0120), and you can disassemble it without any restrictions—apart from the incorrect absolute addresses.
+
+SAVE
+S"name", ANFADR ENDADR saves a program from ANFADR to ENDADR-1 under "name" to the floppy disk, since this as we now know is the default device. If you want to save to cassette, first set the device number to 1 using "IO 1".
+
+Example: 
+S"SUPERTEST" 4000 4020 saves the program named "SUPERTEST" (located in memory from $4000 to $401F) to a floppy disk. Please note that with this command, the end address is also set to the next byte after the program.
+
+Printer-Set
+PO 2 sets the primary address for the printer to 2. The default device number here is 4 (for example, for Commodore printers). You may have already noticed: 
+With all output commands (such as D, M, etc.), you can also address the printer if you enter the command with a shift key. The output is then displayed simultaneously on the screen and printer. (Please note the change for printer output at the end of the article.)
+
+A Little Calculation
+
+The following command group contains commands for number conversion. As you know, humans with their ten fingers tend to use the decimal system, but computers prefer the binary system because they use transistor switches (it's either on or off, 1 or 0). 
+The hexadecimal system is a compromise, since neither understands it. 
+To avoid any misunderstandings with your computer, you have SMON.
+
+Decimal-Hex Conversion
+#(decimal number) converts the decimal number to the corresponding hexadecimal number. You can enter the value in any way you like, as SMON converts numbers up to 65,535.
+
+Examples: #12, #144, #3456, #65533, and so on.
+
+Hex-to-Decimal Conversion
+$(hexadecimal number) converts the hexadecimal number to the corresponding 
+decimal number, the input must be two or four digits. 
+If this number is less than $100 (= 255), the binary value is also displayed.
+
+Example: $12, $0012, $0D, $FFD2 etc. 
+In the first three examples, the value is also displayed in binary form.
+
+Binary-to-Hex, Dec Conversion
+%(binary number (eight digits, all either 1 or 0)) converts the binary number to the corresponding hexadecimal and decimal numbers. 
+With this command, you must enter exactly eight binary digits. If you accidentally enter more, only the first eight will be used for the conversion. 
+
+Example: %00011111, %10101011
+
+Add-Sub
+?2340+156D calculates the sum of the two four-digit hexadecimal numbers. Along with addition, subtraction is also possible.
+
+Programs on the shunting yard
+
+Occupy
+O (ANFADR ENDADR HEX value) assigns the specified area to the given HEX value. 
+
+Example: O 5000 8000 00 
+fills the range from $5000 to $7FFF with zeros. With "OCCUPY," you can not only clear memory areas but also assign them arbitrary values. Often, you encounter the problem of determining which memory space is actually used by a program. We then first fill the relevant area with, for example, "AA" and then load our program. Please try the following example: Fill the memory range from $3000 to $6000 with $AA and then load our SUPERTEST program. When disassembling, you can see that our small program is embedded precisely between many "AA" entries.
+
+Write
+W (ANFADRalt ENDADRalt ANFADRneu) moves the memory range from ANFADRalt to ENDADRalt to ANFADRneu without converting the addresses! 
+Let's look at our small test program again as an example: W 4000 4020 6000 moves the program mentioned above from $4000 to $6000.
+
+In this process, neither the absolute addresses are converted nor the tables modified. The latter is certainly desirable, but keep in mind that the moved program is no longer executable because the absolute addresses are no longer correct (for example, with the instruction LDA 400E,Y). 
+
+If you now enter "G 6000" to start the program, you will certainly be surprised that it still runs. But try deleting the program in $4000 (with "O 4000 4100 AA") and then start the program again in $6000! Strange, isn't it? The next command will solve the problem.
+
+Variation
+V (ANFADRalt ENDADRalt ANFADRneu ANFADR ENDADR) converts all absolute addresses in the range ANFADR to ENDADR that refer to ANFADRalt to ENDADRalt to ANFADRneu. Complicated? Not if you understand that the first three addresses correspond exactly to the inputs in the "W" command. Only the two addresses for the range where the change actually occurs are added.
+
+To make our program, which was already moved with "W", run again, enter the following: 
+
+V 4000 4020 6000 6000 600E. 
+
+This converts all absolute addresses in the range $6000 to $600E – the table is listed after this – that previously referred to $4000 to $4020 to the new range. As always, practice makes perfect. 
+
+Convert below gives the result of both the previous two commands W and V, at the same time for smaller programs.
+
+Convert - (Moving a program with address conversion.)
+C (ANFADRalt ENDADRalt ANFADRneu ANFADRges ENDADRges) moves the program from ANFADRalt to ENDADRalt to ANFADRneu, converting the addresses between ANFADRges and ENDADRges.
+
+Our small test program demonstrates once again how the command is used. Load it with L"SUPERTEST" and view it with D 4000. 
+Now we want to insert a 3-byte instruction at address $4008:
+
+C 4008 4020 400B 4000 4011 
+
+moves the program from $4008 to $4020 to the new starting address $400B. In the range from $4000 to $4011 (the new end address of the "active" program!), the jump addresses are converted. You can now insert a 3-byte instruction starting at address $4008, for example, STY 0286. To do this, please enter:
+
+A 4008
+4008 STY 0286
+F
+
+Verify that SMON has correctly converted the instructions by disassembling our example 
+D 4000 and then running it with G 4000. 
+Owners of a color monitor will be delighted. Caution is advised if tables or text are present. SMON will attempt to disassemble these as instructions and convert them if necessary. 
+This can lead to unpredictable errors. For this reason, the end address of the area to be modified in the example is set to $4011 and not $4023. If you need to move larger programs, you should use the W and V commands or an assembler (for example, Hypra-Ass), which allows you to make arbitrary insertions, moves, and other modifications. 
+The C command is primarily suitable for smaller changes within a program.
+
+BASIC-DATA
+B (Anfadr Endadr)
+converts the machine code from ANFADR to ENDADR-1 into BASIC DATA lines.
+
+B 4000 4020
+
+Our test program is converted into DATA values and then stored in BASIC memory starting with line number 32000. A BASIC program in memory (for example, a BASIC loader) with lower line numbers can then use these DATA lines.
+
+Once you have converted the test program as described above, verify its execution with the LIST command. Then you can enter the following:
+
+10 FOR I=16384 TO 16415 : READ D : POKE I,D : NEXT
+
+In conjunction with the DATA lines generated above (and RUN!), you would have the original machine program back in memory. 
+If you want to run this example, please remember that after creating the DATA, 
+you must overwrite the original program for example with OCCUPY:
+
+O 4000 4020 AA 
+
+so that you can verify correct execution. The BRK instruction at the end of the test program causes a jump back to SMON. If you want to start a machine program from BASIC and also return to BASIC, the last instruction in the assembly program must be an RTS. 
+Try it out by extending the BASIC program above with: 
+
+20 SYS 16384
+
+
+CONTROL
+
+K (Anfadr Endadr)
+
+lists the ASCII characters in the selected range. 32 characters are output per line, allowing you to quickly get an overview of texts or tables.
+
+Example: 
+K 4000 
+
+lists the first 32 characters of our program. Further output is possible, just like during disassembly, by pressing SPACE or RETURN. Also as with the other screen output commands, you can make changes by simply overwriting the output (of course, not in ROM and only with ASCII characters!).
+
+As an example, let's "mess around" with BASIC. This isn't so easy, of course, because BASIC resides in ROM and therefore cannot be modified. Please type the following:
+
+W A000 C000 A000
+
+At first glance, this seems like a nonsensical instruction; the memory should be moved from A000 to C000 to A000. This command corresponds exactly to the BASIC loop
+
+FOR I = 40960 TO 49152 : POKE I, PEEK (I): NEXT
+
+However, PEEK reads the ROM, while POKE writes to the underlying RAM. We are thus copying the BASIC into RAM. Now we need to ensure that the operating system retrieves its BASIC from RAM and not from ROM. Memory location 0001 is responsible for this. Please enter "M 0001" and overwrite "37" with "36".
+
+Nothing happens. Now our K command comes into play. Enter: 
+
+K A100 A360
+
+What you see are the BASIC command words and messages.
+
+Switch to lowercase using SHIFT/CBM, and you will see that the last letter of each command word is capitalized (end identifier). 
+Now, overwrite "LIST" (A100) with "LUST" and "ERROR" (A360) with "FAELER". (For "FAELER", you must start one character before "ERROR", otherwise it won't work.) Now exit SMON with "X" and then enter: POKE 1,54
+
+SMON always switches back to the BASIC ROM with the "X" command, so we need to switch back to our modified BASIC. 
+Now write a three-line BASIC command and try to LIST it. Result? 
+Now try it with "LUST". The sky's the limit... As mentioned above, SMON provides a number of different search routines, which are described below with many examples. 
+All these commands consist of two characters and begin with the letter "F".
+
+FIND
+F (HEX VALUE(s), Anfadr Endadr)
+
+searches for individual HEX values within a specific range. The second character (after F) is a space and must not be omitted! The range specification can be omitted, as with all subsequent commands, in which case the entire memory will be searched.
+
+Example: 
+We search for all LDY #01 instructions, i.e., the values A0 01 in the range from $2000 to $6000.
+
+F A0 01, 2000 6000 
+
+(the spaces between the hexadecimal bytes must not be omitted!). All memory locations containing the searched bytes will be displayed, for example, 4000.
+
+FA (address, Anfadr Endadr)
+searches for all instructions that have a specific address as an operand (absolute). 
+The address does not need to be specified in full; the wildcard character "*" can be used.
+
+Example 1: 
+We search for all JSR FFD2 instructions in the range $2000 to $6000.
+
+FA FFD2, 2000 6000
+
+All disassembled instructions containing FFD2 in the operand (including LDA FFD2 or STA FFD2,Y...) are displayed.
+
+Example 2: 
+We search for all instructions that access the graphics area $D000 to $DFFF
+
+FAD***, 2000 6000
+
+This wildcard can also be used, for example, to search the range $D000 to $D0FF: 
+
+FA D0**, 2000 6000
+
+FR (address, Anfadr Endadr)
+searches for relative branch targets, unlike absolute branches (JMP, JSR) 
+Branch instructions use relative addressing, for example, "branch 10 forward" or 
+"37 back". Such branches cannot be found with the FA command. "FR" is used instead.
+
+Example: 
+Search for all branch instructions that jump to address $4002.
+
+FR 4002, 2000 6000
+
+Of course, such instructions can only be a maximum of 128 bytes away from the branch target. The range specified here is therefore much too large (SMON is not bothered by this, however). The use of the wildcard is also possible here, as described above.
+
+FT (Application Anfadr Endadr)
+searches for tables in the specified range. SMON treats anything that cannot be disassembled as a table.
+
+Example: 
+We search for tables or text in the range $2000 to $6000.
+
+FT 2000 6000
+
+FZ (Adr, Anfadr Endadr)
+searches for all instructions that have zero-page addresses.
+
+Example 1: 
+
+FZ C5, 2000 6000 
+
+finds all instructions that address C5, for example, BIT $C5, LDA (C5), Y, etc.
+
+Example 2: 
+
+FZ F*, 2000 6000 
+
+finds all instructions that address the range between $F0 and $FF.
+
+Example 3: 
+
+FZ**, 2000 6000 
+
+finds all instructions with zero-page addressing.
+
+FI (Operand, Anfadr Endadr)
+searches for all instructions with immediate addressing.
+
+Example: 
+Instructions that load the Y register with 01 are searched for.
+
+FI 01, 2000 6000 
+
+finds LDY #01 at address $4000.
+As you can see, SMON offers a wealth of different FIND routines with which anything can be searched for and found (!).
+
+= 4000 6000
+
+Compares the memory contents starting at $4000 with those starting at $6000. The first non-matching byte is displayed, and the comparison is aborted.
+
+So, if you have written and revised a machine code program and you no longer know exactly what the difference is between version 76 and 77, proceed as follows: 
+
+First, load version 76 and move it to free memory using the "W" instruction. 
+Then load version 77 and execute the "=" command. 
+You'll immediately see the difference and can begin working on version 78...
+
+When describing the trace commands, we'll focus on practical examples. Regarding the structure of the routine, let's just say this: 
+
+It's controlled using processor interrupts, because that's the only way to intervene in the running machine program. During the trace process, the screen is briefly turned off and on again because all other interrupt requests, such as those from the video chip, must be prevented. Since the program's instructions are not only displayed but also actually executed, the "SEI" command must be used with great care. More on that later. 
+We'll use a new, more suitable example than before. Type the following mini-program using the assembler:
+
+A 4000
+
+4000 LDA #30      Charge the accumulator with (ASCII·) O
+4002 JSR FFD2     Print the accumulator to the screen
+4005 CLC
+4006 ADC #01      Increment the accumulator by 1
+4008 CMP #39      Compare the accumulator with (ASCII-) 9
+400A BCC 4002     Jump back if the accumulator is smaller
+400C BRK          Jump back to SMON
+
+Start the program with: G 4000 
+It should print the numbers from 0 to 8 to the screen.
+
+
+Trace-Stop
+
+TS (Start-Address Stop-Address)
+
+Now start our program with: 
+
+TS 4000 4009 
+
+The first instructions are executed (the zero is printed, the accumulator is incremented, etc.), then the program stops at address $4009 and jumps to the register display.
+
+Strictly speaking, "TS" isn't actually a trace command; the program runs in real time up to the selected stop address. Once there, you can check the registers and, if necessary, modify them by overwriting them. You can then continue program execution with "G" "TW" or "TB" (explained later) without specifying any further addresses. SMON remembers where it stopped and continues from that address unless you specify a new one.
+
+This command is useful whenever only specific parts of a longer program need to be traced, but the beginning must be executed to set variables or request user input. Even if you're not entirely sure whether a particular passage will ever be executed, you can check it with "TS"
+
+However, there are two limitations due to how this command works: 
+SMON places a BRK instruction at the stop address in the program and remembers which instruction was there in order to write it back. Therefore, "TS" only works in RAM, not, for example, in BASIC or the operating system. 
+Also, the memory location where SMON stores the replaced instruction ($02BC) must not be changed by the program; otherwise, a correct repair is no longer possible.
+
+The most frequently and versatilely used trace command is certainly "TW".
+
+Trace-Walk
+
+TW (Start-Address)
+
+Now start our example with: 
+
+TW 4000
+
+The first instruction (LDA #30 at address $4000) is executed, SMON stops, and then displays the contents of all registers in the same order as with the "R" command, as well as the next instruction. 
+The accumulator now contains 30, and the program counter points to $4002. Now press a key. The next instruction (JSR FFD2) is executed, and the program counter points to $FFD2. 
+Pay attention to the stack pointer: 
+its value has decreased by 2 because the processor has placed the address on the stack to which it should jump back after the subroutine finishes.
+The next displayed instruction is an indirect jump via $0326. It will be executed with the next key press.
+
+And so it continues. Don't despair if, even after the next ten key presses, you're still "tracing" somewhere in the operating system and there's no sign of our example program anywhere. For once, our favorite hasn't disappeared into "dreamland" but is doing what it's supposed to: dutifully executing one instruction after another that belongs to the routine $FFD2, and that's quite a lot. So keep moving your fingers; you asked for it. Eventually, after several hundred key presses, you'll suddenly find yourself back in the register display of SMON. The program has finished. Now you might be disappointed and ask what one is supposed to do with a trace mode that creates utter chaos even with the smallest example programs? 
+
+Just be patient, salvation is at hand in the form of the "J" key.
+
+If your hand isn't already in a cast, start the whole thing again from the beginning with:
+
+TW 4000 
+
+This time, however, press "J" every time the next instruction "JSR FFD2" is displayed. The effect is that the entire subroutine is executed in one go, and you immediately return to the next instruction in our example. You can see that we haven't cheated and simply omitted the instructions of "JSR FFD2" because the accumulator has actually been displayed on the screen (to the right of FFD2). Now you can calmly follow our example to the end and see how the accumulator is incremented, how the comparison affects the status register, and how the return to the loop occurs.
+You can also use the "J" key even if you are already in the middle of the subroutine. 
+
+However, extreme caution is advised: The return address must absolutely be on top of the stack when you press "J". If the processor has placed values on the stack (using PHA or PHP), the jump will go somewhere else entirely, not back to the program. Therefore, pay close attention to the stack pointer value. If its value is exactly the same as when the subroutine started, nothing can go wrong. 
+Otherwise, the only options are the reset button, which you hopefully have installed by now, or a steady hand holding a paperclip between pins 1 and 3 of the user port (repairing it if it slips will cost around 100 marks...\\\\).
+
+"TW" automatically terminates the register display if a "BRK" instruction appears in the program. If this takes too long or you want to modify a register in the meantime, you can exit trace mode at any time using the Stop key. You can then continue as described for "TS".
+
+Unlike "TS", you can also browse the ROM with "TW"; you already did this with the subroutine $FFD2. The only limitation with the "TW" instruction is that your program must not contain "SEI", as this disables the interrupt and therefore also trace mode. 
+In this case, exit "TW" with STOP and restart after the "SEI" instruction. However, you must accept that the program will usually no longer function correctly.
+
+The next program will serve as another example of TW mode. Enter it as follows:
+
+5000 LDA #00    loads the accumulator with "0"
+5002 TAX        transfers the accumulator to the X register
+5003 .0C        a mysterious byte
+5004 LDA #04    loads the accumulator with "4"
+5006 TAY        transfers the accumulator to the Y register
+5007 BRK        jumps to SMON
+
+If we run this small program, the X register should be at "0", while the accumulator and 
+Y registers are loaded with "4". So let's start the program with: 
+
+G 5000 
+
+and look at the registers.
+Strangely, all registers contain an "0". Being cautious, we overwrite the three registers with "FF" to clearly check the change.
+Then we start it a second time with: 
+
+G 5000 
+
+Against all logic, the "wrong" result appears again - all three registers are "0". 
+Here the TW mode should help us by showing us what's actually happening.
+
+Let's enter: 
+
+TW 5000
+ 
+The first instruction (LDA #00) is executed, and zero appears in the accumulator. Now the program counter is on the next instruction, "5002 TAX". After pressing a key, this instruction is executed, and zero appears in the X register. With the following instruction, we notice that the disassembler is unable to interpret it; it outputs three asterisks. This is our byte "0C".
+Another key press; and then we realize that something strange has happened. The processor has apparently skipped the next instruction (LDA #04) and is already on the following "TAY". 
+So this is how our program is executed. This also explains the "incorrect" result. The only remaining question is the reason for this strange behavior. And that it is certainly to be found in the mysterious byte "0C". This is one of the "unofficial" opcodes present due to the processor architecture, which wreak havoc in some programs; as we unfortunately discovered. The byte "OC" acts like a "NOP" with a length of 3 bytes. Therefore, the following 2-byte instruction (LDA #04) is swallowed.
+
+There's still much to discover on the 6502 and 6510; TW makes it possible.
+
+Often, it's not practical to run a program in TW mode from the start. Furthermore, loops that have to be executed manually using "TW" are a
+tedious affair. In addition to the previously described "TS," SMON offers another tracing option:
+
+Trace-Break
+TB (Address Number of passes)
+
+Trace-Quick
+TQ (Address)
+
+Enter the following program as an example:
+
+6000 LDY #00        Y Set counter to "0"
+6002 LDA 600E,Y     Load values ​​from $600E onwards
+6005 JSR FFD2       Output the characters to the screen
+6008 INY            Increment the counter
+6009 CPY #0E        Counter already "14"?
+600B BCC 6000       If no, get the next value
+601D BRK
+
+$600E should now contain text that the program outputs. The simplest way to write text to memory with SMON is using the "K" command. Enter:
+
+K 600E
+
+(followed by pressing Return) and press the STOP key. Move the cursor to the first character displayed (probably a period) and type; without quotation marks:
+
+"ERROR FIXED"
+
+Then press Return to send the line to the computer. When you run the program, you'll once again have the opportunity to grab a drink (Cheers!), because the program contains a silly bug and will keep the computer busy for a very, very long time. More precisely, until you reset it (for example, using RUN/STOP-RESTORE).
+
+Now, SMON should help locate this bug. First, set a breakpoint at $6002 and limit the number of iterations to the maximum:
+
+TB 6002 0E
+
+and start the quick trace at $6000 with
+
+TQ 6000
+
+The program will run until address $6002 is reached 14 times and then switch to TW mode. If you now take a close look at the register contents, the error should be immediately obvious. What should the Y register be? What value should the accumulator have? Right?!
+
+
+SMON's "Memory"
+
+If you want to examine or modify programs with SMON, you need to know which memory locations SMON uses. There are monitor programs that use the BASIC pointers as working memory, so a BASIC program is deleted after returning from the monitor. SMON doesn't do that. But of course, it also needs memory locations to remember values. To help you avoid conflicts from the start, the most important ones are shown here.
+
+In the zero page, SMON occupies the area from $00A4 to $00B6. This area contains system variables for cassette storage and the RS232 interface. These are only used while the cassette or RS232 is running, but are otherwise free. Furthermore, memory locations $00FB to $00FF are used, which are already freely available to the user. All other pointers in the zero page, especially the memory allocation for BASIC, remain unaffected.
+
+SMON also uses the area from $02A8 to $02C0 as additional working memory. This area is also not used by the operating system, so no conflicts should arise. During assembly, the cassette buffer is additionally required as storage for the labels. This buffer otherwise remains unchanged; this is important if machine routines are to be stored there.
+All in all, SMON is quite compatible.
+
+
+Move SMON? - With SMON!
+
+We have received several inquiries asking whether SMON can be moved using the "W", "V", or "C" commands. All attempts in this direction have failed. Some readers also suggested there must be a bug in the V routine. This time, however, we are completely innocent.
+
+There are some instructions in SMON that are not jump addresses but still refer to the memory area ($C000-) where SMON resides.
+
+These primarily include the jump addresses mentioned above, whose high byte must, of course, be changed if SMON is to run in a different memory area. However, there are also instructions that need to store an address in a vector within the program. 
+Disassemble the beginning of SMON with: 
+
+D C000 C00B 
+
+You will obtain:
+
+LDA #14      Low byte of SMON's BREAK routine
+STA 0316     Stored in the break vector
+LDA #C2      High byte (!) (see above)
+STA 0317     (see above)
+BRK
+
+This sets the operating system's break vector to SMON, and with the subsequent BRK instruction; and every subsequent one, the program jumps to SMON's BREAK routine. If SMON is to run in a range other than $C000, then these instructions must be changed.
+
+You can find them using:
+
+FI C*, C000 D000 
+
+You remember what this command means: 
+Find all instructions that load a register directly with a value starting with $C but be careful! Not everything displayed needs to be changed! 
+To save you hours of pointless agonizing, we'll show you, as an example, how to move SMON to the range $9000 to $A000. Of course, this works in principle for any other range as well; we ourselves have a total of five SMON versions for five different memory ranges, one of which always fits.
+
+1. First, we move the entire program to the new range without any conversion:
+
+W C000 CFFA 9000
+
+2. Now we convert all absolute (3-byte) instructions. The tables at the beginning of SMON remain unchanged:
+
+V C000 CFFA 9000 920B 9FD2
+
+3. Next, we modify the high bytes of the command address. Enter:
+
+M 902B 906B
+
+and in every second byte, overwrite the "C" with "9". Don't forget to press "RETURN" at the end of each line to apply your changes.
+
+4. Now, let's look at the commands with immediate addressing. They must be modified to refer to the new range $9... Find them using
+
+FI C*, 9000 9FFA
+
+You will receive:
+
+9005 LDA #C2    Change
+9124 CPX #C0    Do not change
+9386 LDY #C0    Change
+9441 CMP #C0    Do not change
+987F LDX #C3    Do not change
+988D LDX #C1    Do not change
+9992 LDA #C1    Do not change
+9C2C LDA #CC    Change
+9C5B LDA #C2    Change
+9CF4 LDA #CC    Change
+9DA1 LDX #CC    Change
+9E03 LDA #CC    Change
+9E6C CMP #C0    Do not change
+9F71 LDY #CF    Change
+
+As you can see, there's no rule about which commands need to be changed and which don't. Therefore, you must make these changes manually.
+
+5. The addresses in the disk monitor also need to be changed. To do this, please enter:
+
+M 9FD8 9FE4
+
+and change every second byte as described in point 3.
+
+Please don't forget to save your new version(s) under a new name. You can then load them from disk using LOAD"Name",8,1 and start them with the corresponding SYS command (for example, 36864 for SMON $9000). Remember to enter NEW after loading and before the SYS command; otherwise, the B command will complain with an OUT OF MEMORY ERROR.
+
+Now try all the commands. You must work in the same way as before. In particular, you can now also examine programs like "DOS 5.1" or "Turbo Tape," which are located in the $C000 range. However, when using "SMON $9000" from within BASIC, be careful that BASIC doesn't overwrite it. String variables are built from
+$A000 downwards, and there isn't much space until $9E09. If in doubt, protect the range by entering the following after loading SMON $9000:
+
+NEW: POKE 56,144 : POKE 55,0
+
+This protects SMON from being overwritten. This isn't necessary for SMON $C000, of course, because BASIC can't access that range.
+
+Disk Monitor Commands
+
+Since working with the disk monitor requires special attention (according to Murphy's Law, incorrect entries usually result in unreadable disks), it is activated with its own command. Unfortunately, all the somewhat sensible letters ("D" for diskette or "F" for floppy) were already taken, so we opted for a simple "Z" decided for confidence.
+
+-Z activates the disk monitor
+
+The border color changes to yellow, and the familiar "." at the beginning of a line changes to "*". All of this is to make it clear that things are about to get serious. Internally, BASIC is now deactivated because the disk monitor requires a 256-byte buffer. This buffer is located in RAM from $BF00 to $C000 below BASIC, because it is least likely to cause interference there.
+
+READ: R (Track Sector)
+Reads a block from the disk into the computer. Track and sector must be entered as hexadecimal numbers. The first line of the block is output. Since we are using standard SMON routines, the memory address is $BF00. You can ignore the "BF" for now. The rest of the hex dump output is displayed differently than usual using the "SHIFT" key. STOP aborts the output. You can overwrite and thus modify the hex bytes. However, a permanent change only occurs when writing back to the disk (see the "W" command). If you enter only "R" without specifying a track and sector, the next logically (!) block is read.
+
+MEMORY-DUMP: M
+Displays the block currently in the buffer on the screen again.
+
+Just like with the R command, you can control the output and make changes using "SHIFT" and "STOP".
+
+WRITE: W (Track Sec1or)
+Writes a block from the buffer back to the disk. Similar to "R", specifying the track and sector is optional. In this case, the track and sector of the last R command are used. This is the correct one in almost all cases.
+
+ERROR: @
+Reads the error channel, but only outputs it if an error actually occurred. ("00, OK, 00, 00" is suppressed.)
+
+EXIT: X
+Exits the disk monitor and returns to SMON. The border color reverts to blue, and the period (".") reappears at the beginning of the line. BASIC is re-enabled. If you now want to access the buffer with SMON commands, you must disable BASIC again ($36 in memory location $0001).
+
+The following examples are intended to illustrate how to work with the disk monitor.
+
+Caution! Be sure to use a disk you no longer need for practice!
+
+Neither we nor the publisher are liable if your favorite program or painstakingly created address file is irretrievably lost. We know from experience how quickly this can happen... It's best to make a copy of one of your floppy disks that you can use for practice.
+
+Repairing a Deleted File
+Surely this has happened to you before: You want to delete your program named "Junk," enter: 
+
+S:S* 
+
+as the abbreviation, and realize the moment you press "RETURN" that the disk also contained all versions of "SMON", as well as "Spring bird", "Soccer", etc. You only need to despair if this last SMON version was also included with the disk monitor. Otherwise, stay calm and proceed as described below.
+
+Now load SMON, insert your "practice disk" (!) into the drive, and delete one of the first programs using the usual Scratch command. Now start SMON and press: 
+
+Z 
+
+The screen will change color as described, and the asterisk (*) will appear at the beginning of the line. Now enter:
+
+R 12 00
+
+The first line of the BAM (Block Allocation Map), which is located on track 18, sector 0 of every disk, will appear on the screen. The first two bytes contain "12 01" and thus indicate the logical next block. In this case, that would be the first block of the directory. If you continue the screen output with "SHIFT", you will see the disk name about halfway through. Let the output run until the "*" appears again. Now enter "R" without any further information. This gives you the coupling block, i.e., track 18, sector 1, the first directory block. (Of course, you could have just typed "R 12 01", but we want to show how the commands work.)
+
+This block contains the first eight programs from your practice disk, including the name of the deleted program.
+
+Nevertheless, this program is actually deleted and no longer appears when you display the directory. If you compare the entry of the deleted program with the others, you will notice that 3 bytes before the beginning of the name, all the others have "82" (provided they are program files), but the deleted one has "00". The repair is now incredibly simple: you just need to overwrite the "00" with "82". However, there's still a catch. During the SCRATCH process, the blocks occupied by the program in the BAM (Block Allocation Map) were marked as free, and any new entry would permanently overwrite the file marked as deleted. To prevent this, you must validate the disk after the repair (from BASIC using the command: OPEN 1, 8, 15, "V"). This regenerates and corrects the BAM (Block Allocation Map).
+
+Protecting a File
+While we're at it, let's protect our repaired deleted file from being deleted once and for all. This feature of the floppy disk operating system (DOS) isn't described in the manual, but it works perfectly nonetheless. To do this, reload the first page of the directory with:
+
+R 12 01
+
+and change the "82" before the file entry to "C2". Enter "W" to write the change to the disk. Now exit SMON with "X" and display a directory. The protected file is marked with a ">". Now try deleting this program using the Scratch command. It won't work! To "unlock" it, simply change "C2" back to "82". The ">" in the directory will disappear, and the file will no longer be protected.
+
+Protecting a Floppy Disk
+If you want to protect an entire floppy disk from accidental deletion or formatting, you can cover the erase notch with tape. However, there's another way.
+
+Caution! The procedure described below cannot be easily reversed, not even with Disk Monitor!
+
+So, take a floppy disk that you can subsequently "hard format" (i.e., by entering an ID). Now start Disk Monitor and read the BAM disk with "R 12 00". The third byte contains "41". This "41" is an identifier for the DOS of the 1541 or 4040 floppy. Change this byte to "45" by overwriting it and save the change back to the disk with "W". Now exit SMON and try to delete something. See the result above. Also try "soft formatting" the disk, for example, with OPEN 1,8,15,"N:TEST".
+
+That's no longer possible either. But it gets even better: Start the disk monitor again and try to undo the change by writing back "41" instead of "45". That's no longer possible either; we already warned you! The only remaining option is to "hard" format the disk, for example with: OPEN 1,8,15,"N:TEST,TE". However, if, against all warnings, you have nevertheless protected your master disk against write access, we will exceptionally show you how to undo the modification. 
+To do this, we trick the DOS of the 1541 drive by making it think it has a standard-format disk in front of it. We use the memory write command, which simply writes an "A" to memory location 0101 (zero-page address) of the 1541 RAM. The CHR$ code for "A" is 65, or 41 in hexadecimal notation. Remember? This value was originally located in the third byte of track 18, sector 0. With the following small program, we simply bypass the DOS flag, and we can write to the disk normally again. The most efficient approach is to immediately run SMON, convert the byte previously changed to 45 back to 41, and save the changes. The disk can then be used for reading and writing again. Here is the small program:
+
+10 OPEN 1,8,15
+20 PRINT #1, "M-W"CHR$(1)CHR$(1)CHR$(1)CHR$(65)
+30 CLOSE1
+
+Changing the Disk Name or ID
+We already saw above that the disk name is stored in track 18, sector 0 of a disk, approximately in the middle. This name can be changed by simply overwriting it; as you know, it can contain up to 16 characters. If your new name has fewer letters than the old one, you must fill the gaps with "A0" and not "20" as spaces. This is especially important if you want to change filenames using this method. This works in principle the same way as described above. The ID is stored in track 18, sector 0, after the disk name. During formatting, it is written to a header before each sector and serves DOS to identify the disk. It is also stored in the BAM (Block Allocation Map) so that it can be displayed when loading a directory. It is generally not possible to change the ID in the header of a sector without formatting, but the entry in the BAM, and thus the ID displayed in the directory, can be changed. Just like with the name, this is possible by simply overwriting it in the BAM.
+
+Changing a File Type
+If you've ever tried to load a sequential file,
+like a file, using LOAD, you'll have noticed that it's not possible. DOS simply claims that such a file doesn't exist, and the computer reports "FILE NOT FOUND". Many games, for example, store their "Hall of Fame" or high score lists as sequential files. However, with Disk Monitor, it's now possible to change the file type in the directory. Remember the "82" that appears before every filename in the directory. For sequential files, it's "81". You can probably guess what to do. Of course, the "81" is changed to "82", and then the file can be loaded without any further action, naturally only after writing it back with "W".
+
+This is only useful from SMON (by entering a load address). With "M" or "K", you can then view and, of course, modify the file. Don't forget to convert the modified file back into a sequential file after writing it back. Why not amaze your friends with a high score "achieved" this way? You're sure to get their admiration!
+
+Changing the Start Address of a Program
+So far, we've only dealt with manipulations in the BAM (Block Allocation Map) or the directory. If we want to make changes within a program itself, we need to delve a little deeper into the "secrets of the floppy drive." 
+For example, it's sometimes useful to know or change the start address of a machine program. Here's how: First, we search for the file entry in the directory using "R 12 01" and possibly subsequent sectors (12 04, 12 07, etc.). The two bytes after "82" directly before the program name indicate which track and sector the program starts in.
+
+If, for example, "0A 04" is displayed, the program starts on track 10, sector 4. Now read this block with "R 0A 04". The first two bytes of this block point to the next block of the program; the next two bytes contain the starting address in the usual low-high byte order. To change the starting address, overwrite the bytes with the new address and save the block back to the disk with "W".
+
+Working with SMON
+These examples are just a small sample of the disk monitor's capabilities. They should serve as inspiration for your own experiments. Be sure to practice until you know all the commands inside and out (or 255 in decimal). This will save you unnecessary frustration and sleepless nights. It's particularly interesting to access the buffer from SMON and apply the SMON commands to it. I would like to mention the ability to assemble programs directly for DOS and store them in a specific sector, the "Find" routines, and the "K" command for text modifications. Since the buffer is located in RAM below BASIC, BASIC must be disabled in such cases. To do this, change the value "37" to "36" at memory location 0001 using the "M" command.
+
+Once you have finished working with SMON, you can switch to the disk monitor with "Z" and save the buffer area with "W" (track, sector).
+
+Outputting Disk Errors
+When working with the disk monitor, all errors from the drive are displayed directly, even without typing "@", for example, "ILLEGAL TRACK OR SECTOR" if you try to read a non-existent block with "R". However, the program has a flaw that we don't want to conceal. The last block of a file contains "00 FF" as its link address. Since such a block cannot exist, DOS "knows" that it has reached the end. But if you try to read the next block (track 0, sector 255!!) with "R", the error message displayed is not, as it should be, "ILLEGAL BLOCK OR SECTOR", but rather "SYNTAX ERROR". While this is actually irrelevant, it should be mentioned. The error lies in the routine that converts our numerical input into the correct disk format. There simply wasn't enough space in the program for a "proper" conversion; we had to resort to a "saving routine."
+
+Finally, here's a SMON trick we owe to an observant reader. SMON didn't have enough space for directory output. However, here's a workaround: Load the directory, for example, with:
+
+L"$" 8000
+
+to free memory. You can now "read" the directory using "M" or "K." This means all the important functions for working with the floppy disk are now included in SMON.
+
+SMON Uncovers Secrets
+We announced two enhancements at the beginning that are intended to make SMON even more powerful. 
+One is an extension to the disassembler, which can now also disassemble the "illegal" opcodes of the 6502. 
+The other is new functions for the Diskmonitor, which allow you to explore the inner workings of your floppy drive. Now the memory is almost completely full, except for 5 bytes, and the 4 KB limit must not be exceeded under any circumstances. 
+Therefore, we have removed other functions: the disk monitor for the disassembler extension and the trace mode for the disk monitor extension. These two extensions cannot be used simultaneously; in general it makes sense to create separate versions for specific applications: a "normal" version, a special disk version, and one for more demanding disassembly.
+
+Let's start with the last one: As you know, three asterisks always appear during disassembly when SMON encounters a byte that does not represent a valid 6510 opcode.
+
+However, you may also know that there are some instructions beyond the official instruction set that the processor manufacturer has not documented, but which nevertheless work and are even exploited in some programs.
+
+It would of course, be nice if SMON could also display these "illegal" opcodes. Our extension makes this possible. We have implemented mnemonics for a number of these instructions and have SMON output them with a preceding "*". Ten instructions remain, but their effects are so complex that they cannot be abbreviated with a mnemonic, no matter how hard we try. They also fall outside the logic of the processor's architecture. Specifically, these are the opcodes 0B, 2B, 4B, 6B, 8B, 9C, 9E, AB, CB, and EB. We were unable to discover any common structure among these instructions. The new mnemonics have the following meanings:
+
+LAX     Load Accumulator and X corresponds to LDA and LDX
+DCP     Decrement and Compare corresponds to DEC and CMP
+ISC     Increment and Subtraction corresponds to INC and SBC
+RLA     Rotate Left AND Accumulator corresponds to ROL and AND
+RRA     Rotate Right and Add with carry corresponds to ROR and ADC
+SLO     Shift Left OR Accumulator corresponds to ASL and ORA
+SRE     Shift Right and EOR Accumulator corresponds to LSR and EOR
+SAX     Store Accumulator AND X
+        performs an AND operation between the Accumulator and the X register and
+        stores the result at the specified address.
+CRA     CRAsh
+        causes the processor to crash.
+NOP     NO Operation
+        corresponds to the familiar NOP, however, this instruction can also be
+        2 or 3 bytes long. This is evident from the specified address,which in 
+        this case is, of course, meaningless.
+
+The purpose of these instructions is certainly debatable; However, they do sometimes appear in programs, mostly to make these programs unreadable, i.e., as program protection. We strongly advise against using these instructions in your own programs. 
+First, no manufacturer will guarantee that the "illegal" ones will actually work with every 6510 processor; 
+Second, there is no function that cannot be achieved just as well with the "normal" instructions. And as program protection, the "illegal" ones are no longer of any use, at least not since the publication of this article. For this reason, we deliberately refrained from extending the assembler in this direction. You cannot change normal opcodes to "illegal" ones by overwriting them, but you can do the reverse. The only remaining option is input as a single byte, which is hopefully too cumbersome.
+
+Convenient Floppy Monitor for SMON
+Now comes our second treat in the form of a small but incredibly valuable add-on program for the SMON. This is an extension of the floppy disk monitor that allows anyone to instantly undo hours of work. Enter the program as described, start SMON as usual, and press "Z" to access the floppy disk monitor. From there, you can access the new commands with "F" (for Floppy). We deliberately chose this cumbersome method because errors in this mode are even more dramatic than usual. With this tool, you have direct access to the inner workings of the floppy drive. Now you can calmly work through the following commands using a practice disk (!!!).
+
+M Memory Dump of the Floppy Disk Monitor
+
+Example: 
+M (without any further input) 
+lists the floppy RAM range from $0000 to $00FF. (The first line appears initially; further output is available with the SPACE key.)
+
+This range contains, among other things, the job memory ($00-$04) for the five buffers 
+0 to 4, as well as the most important DOS variables.
+
+M 07     Memory Dump starting at $0700
+
+The BAM (Block Allocation Map) of the floppy disk is read into buffer 4 ($0700 in floppy RAM) after initialization. Therefore, use "M 07" to view the current BAM. You could now change the contents of the BAM by simply overwriting it. (The colon before the line acts as a "hidden command"). Then view your changes again with "M 07". You will see that the contents of the floppy RAM have been changed in the meantime. If you now place the job code "90" (= write command to the floppy controller) in memory location $04, the changed (incorrect!) BAM would be written back to the floppy disk! As indicated above, there are plenty of ways to "ruin" the floppy disks.
+
+For testing purposes, here are some important memory locations and job codes:
+
+$80 Read
+$90 Write
+$C0 Head "Hit"
+$D0 Execute machine programs in the buffer
+$E0 Execute program in the buffer when the drive spins up
+
+Floppy RAM memory locations:
+
+$06/$07 is the track and sector number for the instruction in buffer 0
+$08/$09 for buffer 1
+$0A/$0B for buffer 2
+$0C/$0D for buffer 3
+$0E/$0F for buffer 4
+
+Each buffer is allocated two memory locations: one for the job code ($0000 to $0004)
+
+and one for the track and sector. Therefore, if you want to read a specific block into buffer 0 (located in $0300),
+enter the following commands:
+
+"M" reads the zero page of the floppy drive – the first few lines will then look like this, for example:
+
+:0000 01 01 01 FF 03 04 01 34
+:0008 23 02 04 50 01 03 0A 11
+
+Move the cursor to the first line and write "80" to the first memory location (replacing the first 01). In memory locations $06/$07 (the last two in the first row), enter the track and sector number to be read, for example,
+12 01. You will then see:
+
+:0000 80 01 01 FF 03 04 12 01
+:0008 unchanged
+
+Press the RETURN key. The read block (here, the first directory block) can now be viewed using "M 03". Changes can be made by simply overwriting. Your change will only become permanent by writing it back (to track $12 and sector $01) with the job code "90" to the first memory location. After changing the two addresses responsible for buffer 0 ($06/$07), the change can also be made to any other location. This is to be taken literally, as we are "below" here.
+
+
+SMON Command Overview
+All inputs are in hexadecimal notation. Addresses specified in parentheses can be omitted. SMON will then use appropriate, predefined values.
+For all output commands, simultaneous printing to a printer is possible. To do this, the commands are entered with a Shift key.
+
+A 4000 (Assembler)
+Symbolic assembler (label processing possible) Start address $4000
+
+B 4000 4200 (Basic Data)
+Generates Basic Data lines from machine code in the range $4000 to $41FF
+
+C 4010 4200 4013 4000 4200 (Convert)
+Inserts a 3-byte instruction at address 4010 into a program located in memory from $4000 to $4200. The program is moved from address $4010 to $4200 to the
+new address $4013. All absolute addresses within the
+program range ($4000 to $4200) are converted so that the
+jump targets are correct.
+
+D 4000 (4100) (Disassembler)
+disassembles the range from $4000 (to $4100) and outputs the hexadecimal values.
+Modifications are possible by overwriting the instructions.
+
+F (Find)
+Finds strings (F), absolute addresses (FA), relative jumps (FR),
+tables (FT), zero-page addresses (FZ), and immediate instructions (FI)
+
+G (4000) (Go)
+Starts a machine program that begins at $4000 in memory
+
+I 01 (I/O Device)
+Sets the device number for floppy (08 or 09) or datasette (01)
+
+K A000 (A500) (Check)
+For quickly searching the range from $A000 (to $A500) for
+ASCII characters (32 bytes per line). Changes can be made by overwriting the
+ASCII characters.
+
+L (4000) (Load)
+Loads a machine program to the correct or a specified address ($4000)
+
+M 4000 (4400) (Memory Dump)
+Outputs the contents of memory from $4000 (to $43FF) in hexadecimal bytes and ASCII code.
+Changes can be made by overwriting the hexadecimal numbers.
+
+O 4000 4500 AA (Occupy)
+Fills the memory range from $4000 to $4500 with a specified byte ($AA).
+
+P 05 (Printer)
+Sets device address 5 for the printer.
+
+R (Register)
+Displays the register contents and flags. Changes can be made by overwriting.
+
+S"Test" 4000 5000 (Save)
+Saves a program from $4000 to $4FFF under the name "Test".
+
+TW (4000) (Trace-Walk)
+Executes the next machine instruction upon key press and displays the register contents.
+Subroutines can be executed in real time ("J").
+If no start address is specified, "TW" begins at the last address displayed with "R".
+
+TB 4010 05 (Trace-Break)
+sets a breakpoint for fast-step mode at $4010.
+Fast-step mode is interrupted after $4010 has been reached for the fifth time.
+
+TQ 4000 (Trace-quick)
+Fast-step mode, jumps to single-step mode upon reaching a breakpoint.
+
+TS 4000 4020 (Trace stop)
+executes a program in real time starting at $4000 and jumps to the register display upon reaching $4020.
+From there, execution can continue (after any necessary register changes)
+with "G" or "TW", "TS" operates only in RAM.
+
+V 6000 6200 4000 4100 4200 (Move)
+In a program, from $4100 to $41FF, changes all absolute addresses that refer to
+the range from $6000 to $6200 to a new range starting at $4000.
+
+W 4000 4300 5000 (Write)
+Moves the memory contents from $4000 to $42FF to $5000 without converting the addresses (for example, tables).
+
+X (Exit)
+Returns from the monitor program to BASIC.
+
+#49152
+Converts to decimal.
+
+$002B
+Converts to 4-digit hexadecimal.
+
+%01101010
+Converts to 8-digit binary.
+
+?0344 + 5234
+Adds or subtracts two 4-digit hexadecimal numbers.
+
+=4000 5000 (Compare)
+Compares the memory contents starting at $4000 with those starting at $5000.
+
+Z (Disk Monitor)
+Calls the disk monitor. This command has the following options:
+
+R (12 01) (Read)
+Reads track $12, sector $01 from the disk into a buffer in memory.
+If no track and sector are specified, the next logical (!) sector is read.
+
+W (12 01) (Write)
+Writes the buffer contents to track $12, sector $01 in memory onto the disk.
+If no track and sector are specified, the last inputs of "R" are used.
+
+M (Memory-Dump)
+Displays the buffer contents as a hex dump (like normal "M"). Further output is available with the CBM key; abort with STOP. Values can be changed by overwriting.
+
+X (Exit)
+Returns to SMON.
+
+F (initialize further disk commands) Once the commands are initialized, the following applies:
+
+M (07)
+Memory dump (floppy RAM/ROM)
+
+V 6000 0400
+Move a 256-byte block from $6000 to drive buffer 1 or to floppy RAM
+
+@
+Send normal disk commands
+
+X
+Return to the normal disk monitor
+
+This is the controller level, which is responsible, among other things, for checking that the allowed track and sector boundaries are being observed. Therefore, no error message will appear if you try to write your floppy drive to the adjacent one (for example, to track 152).
+
+Similar read and write exercises can be performed with the other buffers. Remember, you must first enter the track or sector number for the corresponding buffer (in the second line!) before passing the job code with a "RETURN" in line 1, because pressing the RETURN key executes your command. And one more thing: please don't strain your write head more than absolutely necessary, otherwise it could jam mechanically and only be freed by intervening in the floppy drive mechanism.
+
+If you have issues 1/85 (page 151) and 3/85 (pages 103 to 135) of the 64'er, you can find information there about other memory locations on the floppy drive and the further use of job codes.
+
+The command @ without any further specification queries the error channel; otherwise, it is used to transmit commands to the floppy drive.
+
+Example: @ Error channel
+         @I Initialization command or
+         @S:name Scratch command, and so on.
+
+Due to the different versions, this command sometimes reverts to the "normal" floppy disk monitor, indicated by the "*" at the beginning of the line. You then need to type "F" again.
+
+X returns you to the floppy disk monitor. Finally, a very helpful command called "V" allows you to move memory areas from the computer to the disk buffer. The following simple syntax applies: V from to
+For example, to move a machine program from $6000 to buffer 1, enter the following:
+
+V 6000 0400
+
+This always transfers an entire page, i.e., 256 bytes. Why should the program be there, you ask? Simply execute it (write job code $D0 to memory location $01); or write it to any sector of the disk using job code "90".
+
+If you've completely messed up your floppy drive and nothing works anymore, don't despair. Aside from a potentially stuck read head, nothing will happen to the floppy drive itself, only to your disks.
+
+Instructions for Typing in the Programs
+
+Type in the two extension programs (Listings 2 and 3, or Listings 4 and 5 for the M&T version) using the MSE program and save the completed programs. The programs for the M&T version sensibly have "M&T" in their names.
+Then load and start your SMON $C000. Type: 
+
+L"NDISASS"
+
+This will automatically load the new commands via the existing disk monitor. They now need to be activated. To do this, type: 
+
+G CF0D.
+
+SMON will immediately display its register again. You should definitely save this version now, for example with: 
+
+S"SMON NDISASS" C000 CF3D.
+
+If you now load the program "ILLEGAL-CODE" (Listing 6) and disassemble it with D 4000, you will see the "illegal" opcodes neatly arranged one after the other.
+
+To integrate the new commands of the floppy monitor into SMON, proceed in a very similar way. After typing and saving the program "FLOPPYMON," SMON C000 must, of course, be loaded and started. Then enter: 
+
+L"FLOPPYMON" 
+
+and activate it with: 
+
+G CDD8 (64'er version) 
+or: 
+G CDB6 (M&T version)
+
+To save, enter: 
+
+S"SMON-FLOPPY" C000 CFFF 
+
+This applies to both versions.
+
+(Dietrich Weineck/ah)
+
+
+SMON Memory Locations
+
+The following zero-page addresses are used:
+
+FLAG     $AA      Universal flag
+ADRCODE  $AB      Addressing code for assembler/disassembler
+COMMAND  $AC      SMON instruction code
+BEFCODE  $AD      Instruction code for assembly/disassembler
+
+LOPER    $AE      Low operand for assembly/disassembler
+HOPER    $AF      High operand for assembly/disassembler
+BEFLEN   $B6      Instruction length for assembly/disassembler
+PCL      $FB      SMON program counter (low byte)
+PCH      $FC      SMON program counter (high byte)
+
+Outside the zero page, SMON uses the following areas:
+
+PCHSAVE  $02A8
+PCLSAVE  $02A9
+SRSAVE   $02AA
+AKSAVE   $02AB    are used for temporary storage
+XRSAVE   $02AC    of the specified registers
+YRSAVE   $02AD
+SPSAVE   $02AE
+
+PRINTER  $02AF    Printer number
+IO.NR    $02B0    Device number
+MEM      $02B1    Buffer up to $02B8
+
+TRACEBUF $02B8    Buffer for trace mode
+                  up to
+         $02BF
+
+Then follow the addresses required by DiskMonitor:
+
+SAVEX    $02C1    Temporary storage of the X and Y registers
+TMPTRCK  $02C2
+TMPSECTO $02C3    Temporary storage for track and sector
+DCMDST   $02D0    Disk command string
+TRACK    $02D8
+SECTO    $02DB    Track and sector number
+BUFFER   $033C    Only for assembler label buffer, up to
+         $03FC
+
+Entry addresses of SMON routines
+The information in parentheses refers to the M&T version
+
+; (TICK)       $CADB    ($CACF)
+# (BEFDEC)     $C92E    ($C92F)
+$ (BEFHEX)     $C908    ($C909)
+% (BEFBIN)     $C91C    ($C910)
+, (COMMA)      $C6FC    ($C6B1)
+: (COLON)      $C41D    ($C40B)
+; (SEMIS)      $C3B6    ($C3A0)
+= (COMP)       $CAF5    ($CAE9) - V command
+? (ADDSUB)     $C89A    ($C89B)
+A (ASSEMBLER)  $C6D1    ($C6BC)
+B (BASICDATA)  $C96C    ($C96D)
+C (CONVERT)    $CA3D    ($CA32)
+D (DISASS.)    $C55D    ($C542)
+F (FIND)       $CB11    ($CB0C)
+G (GO)         $C3E3    ($C3CD)
+I (IO.SET)     $C844    ($C830)
+K (CONTROL)    $CAB7    ($CAAC)
+L (LOADSAVE)   $C84E    ($C83A)
+M (MEMDUMP)    $C3F9    ($C3E3)
+O (OCUPPY)     $C9C1    ($C9C2)
+P (SETPRINTER) $C83D    ($C829)
+R (REGISTER)   $C386    ($C370)
+S (LOADSAVE)   $C84E    ($C83A)
+T (TRACE)      $CBF1    ($CBEC)
+V (SHIFT)      $CA43    ($CA38) - U command
+W (WRITE)      $C9D3    ($C9D4)
+X (EXIT)       $C36E    ($C369)
+Z (DMON)       $CE09    ($CDFE)
