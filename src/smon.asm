@@ -39,6 +39,8 @@ AKSAVE          := $02AB         ; A
 XRSAVE          := $02AC         ; XR
 YSAVE           := $02AD         ; YR
 SPSAVE          := $02AE         ; SP
+INTOUT          := $BDCD         ; Output Positive Integer in A/X
+INTOUT1         := $BDD1         ; Output Positive Integer in A/X
 IRQ_LO          := $0314         ; Vector: Hardware IRQ Interrupt Address Lo
 IRQ_HI          := $0315         ; Vector: Hardware IRQ Interrupt Address Hi
 BRK_LO          := $0316         ; Vector: BRK Lo
@@ -87,11 +89,14 @@ HLPMSG: .byte   "A xxxx - Assemble starting at x (end assembly with 'f', use Mxx
         .endif
         .byte   "V xxxx yyyy zzzz aaaa bbbb - Within a-b, convert addresses referencing x-y to z",0
         .byte   "W xxxx yyyy zzzz - Copy memory x-y to z",0
+        .byte   "X - Exit SMON",0
         .byte   "= xxxx yyyy - compare memory starting at x to memory starting at y",0
         .byte   ":xxxx aa aa - change memory in HEX starting at x with one or more bytes",0
         .byte   "#ddd - convert DEC to HEX and BIN, max = #255",0
         .byte   "$xx - convert HEX to DEC and BIN",0
         .byte   "%bbbbbbbb - convert BIN to DEC and HEX",0
+        .byte   "?xxxx+xxxx - Hexadecimal addition (you must enter two, 4-digit hex numbers)",0
+        .byte   "?xxxx-xxxx - Hexadecimal subtraction (you must enter two, 4-digit hex numbers)",0
         .byte   0
         
         ;; commands
@@ -136,7 +141,8 @@ FSCMD:  .byte   "AZIRT"
 LC074:  .byte   $80,$20,$40,$10,$00
         ;; "find" sub-command data length (2=word,1=byte,0=none)
 LC079:  .byte   $02,$01,$01,$02,$00
-        
+LC07D:  .byte   $91,$91,$0D,$53,$D9,$31,$37,$32,$0D
+LC087:  .byte   $00,$7D,$4C,$7D,$C9        
 REGHDR: .byte   $0D,$0D,"  PC  SR AC XR YR SP  NV-BDIZC",$00
 LC0AD:  .byte   $02,$04,$01
 LC0B0:  .byte   $2C,$00,$2C
@@ -1260,6 +1266,47 @@ LC948:  sta     $FD
         plp
         adc     #$00
         jmp     LC934
+
+; BASICDATA (B)
+BASICDATA:
+        jsr     GETDW            ; get word from command line
+        lda     #$37
+        sta     $01
+        ldx     #$04
+LC975:  lda     LC087,x          ; bytes that print out Processor Register Table
+        sta     $AA,x
+        dex
+        bpl     LC975
+        jsr     LC351
+        ldx     $AA
+        lda     $AB
+        jsr     INTOUT           ;Output Positive Integer in A/X
+        inc     $AA
+        bne     LC98D
+        inc     $AB
+LC98D:  lda     #$44
+        jsr     CHROUT
+        lda     #$C1
+LC994:  jsr     CHROUT
+        ldy     #$00
+        lda     ($FB),y
+        sty     $62
+        sta     $63
+        jsr     INTOUT1         ; Output Positive Integer in A/X
+        jsr     LC463
+        ldx     #$03
+        bcs     LC9B3
+        lda     #$2C
+        ldx     $D3
+        cpx     #$49
+        bcc     LC994
+        ldx     #$09
+LC9B3:  stx     $C6
+LC9B5:  lda     LC07D,x         
+        sta     $0276,x
+        dex
+        bne     LC9B5
+        jmp     EXIT
         
 ; OCCUPY (O)
 OCCUPY: jsr     GETDW           ; get address range
@@ -1909,8 +1956,10 @@ LCDF2:  lda     IRQ_LO
         sta     BRK_HI
         rts
         
-EXIT:
-        JMP UAEXIT
+EXIT:   
+	jsr     LC351           ; print CR  
+        jmp     UAEXIT          ; exit subroutine in seperate chipset asm file
+
 
 ;;; ----------------------------------------------------------------------------
 ;;; ---------------------------  C64 KERNAL routines   -------------------------
