@@ -474,7 +474,11 @@ LF04D:  LDA	RXBIT		; get received bit
 LF0B3:  LDA	RXBYTE		; get assembled byte
 	BNE	LF0A8		; if non-zero then do frame error
 	BEQ	LF0A5		; else do break error (branch always)
-        
+
+;***********************************************************************************;
+      
+UAEXIT:
+        rts          ; Exit to BASIC or return to SMON if there's no underlying OS
 
 ;***********************************************************************************;
 ;
