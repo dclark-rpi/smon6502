@@ -161,6 +161,8 @@ CMDS:       .byte   <(TICK-1),>(TICK-1)             ; '
 
 ;; output line start characters
 CMDTAB:     .byte   "':;,()!"
+            .byte   <(ILOPC-1),>(ILOPC-1)           ; activate the illegal opcodes
+            .byte   $00,$00
             .byte   $00,$00,$00
         
 OFFSET:     .byte   $FF,$FF,$01,$00
@@ -172,7 +174,7 @@ FSCMD:      .byte   "AZIRT"
 FSFLAG:     .byte   $80,$20,$40,$10,$00
 
 ;; "find" sub-command data length (2=word,1=byte,0=none)
-FSFLAG1:    .byte   $02,$01,$01,$02,$00 
+FSFLAG1:    .byte   $02,$01,$01,$02,$00      
 
 REGHDR:     .byte   $0D,$0D,"  PC  SR AC XR YR SP  NV-BDIZC"
 LC0AC:      .byte   $00,$02,$04
@@ -214,6 +216,22 @@ OPMN3:      .byte   "LRLRRACAYXAPDCYXCCXYTPRCSQIELCSIKCDIVXYXYPAPAPISXYXASACD"
         
 LC204:      .byte   $08,$84,$81,$22,$21,$26,$20,$80
 LC20C:      .byte   $03,$20,$1C,$14,$14,$10,$04,$0C
+
+;; 6502 illegal opcodes (in same order as mnemonics below)
+ILOPC:      .byte   $2B,$4B,$6B,$8B,$9B,$AB,$BB,$CB
+            .byte   $EB,$89,$93,$9F,$0B,$9C,$9E
+
+;; first, second and third characters of illegal opcode mnemonics
+ILOPMN1:     .byte   "NSRSRSLDIC"
+ILOPMN2:     .byte   "OLLRRAACSR"
+ILOPMN3:     .byte   "POAEAXXPCA"
+
+LCE36:       .byte   $25,$26,$20,$21,$82,$80,$81
+             .byte   $22,$21,$82
+LCE40:       .byte   $81,$03,$13,$07,$17,$1B,$0F,$1F
+             .byte   $97,$D7,$BF
+LCE4B:       .byte   $DF,$02,$02,$02,$02,$03,$03,$03
+             .byte   $02,$02,$03,$03
 
 ;; SMON START
 BREAK:      cld
@@ -515,7 +533,6 @@ GO_LOOP:    lda     $01AE,x
             pla
             rti
 
-
 ;; LOAD INTEL HEX (L)
 LOAD:       lda     #13
             jsr     CHROUT
@@ -799,8 +816,9 @@ LC51F:      lda     LC0EA,x
             sta     ADRCODE
             lda     LC0D8,x
             sta     BEFLEN
-            ldx     BEFCODE
-            rts
+            jmp     ILOPCM
+;            ldx     BEFCODE
+;            rts
         
 LC52C:      ldy     #$01
             lda     (PCL),y
@@ -875,17 +893,18 @@ LC5A0:      lda     (PCL),y                   ; get data byte
             sec
             sbc     BEFLEN
             tax
-            beq     LC5BE
+            beq     SPCOC
 LC5B5:      jsr     DBLSPACE                  ; output two SPACE Characters
             jsr     SPACE                     ; output SPACE Character
             dex
             bne     LC5B5
-LC5BE:      lda     #$20
-            jsr     CHROUT
+SPCOC:      jmp     ILOPCD                   ; output opcode with leading space
+            .byte   $D2
+            .byte   $FF
             ldy     #$00
             ldx     BEFCODE
 LC5C7:      bne     LC5DA
-            ldx     #$03
+LC5C9:      ldx     #$03
 LC5CB:      lda     #$2A
             jsr     CHROUT
             dex
@@ -921,7 +940,7 @@ LC607:      lda     OPMN1-1,x
             lda     OPMN2-1,x
             jsr     CHROUT
             lda     OPMN3-1,x
-            jsr     CHROUT
+LC616:      jsr     CHROUT
             lda     #$20
             bit     ADRCODE
             beq     LC622
@@ -1218,6 +1237,96 @@ LC831:      jsr     LC68A                     ; copy opcode plus arguments
             lda     $B7
             sta     $D3
             jmp     LC597                     ; disassemble
+
+;; 6502 illegal opcode mnemonic found
+ILLOPC:     ldx     #$02
+            bne     LCE83
+ILOPCM:     ldx     BEFCODE
+            bne     LCE8A
+            ldx     #$01
+            lda     (PCL),y
+            cmp     #$9c
+            beq     LCE9F
+            cmp     #$80
+            beq     ILLOPC
+            cmp     #$89
+            beq     ILLOPC
+            and     #$0f 
+            cmp     #$02
+            beq     LCE8B
+            cmp     #$0a
+            beq     LCE83
+            inx
+            cmp     #$04
+            beq     LCE83
+            inx
+            cmp     #$0c
+            bne     LCE9F
+LCE83:      stx     BEFLEN
+            ldx     #$01
+            stx     $02c5
+LCE8A:      rts
+LCE8B:      lda     (PCL),y
+            and     #$90
+            eor     #$80
+            bne     LCE97
+            ldx     #$02
+            bne     LCE83
+LCE97:      stx     BEFLEN
+            ldx     #$0a
+            stx     $02c5
+            rts
+LCE9F:      ldy     #$02
+            sty     BEFLEN
+            ldy     #$00
+            sty     $02c5
+            lda     (PCL),y
+            ldx     #$0f
+LCEAC:      cmp     ILOPC,x
+            beq     LCE8A
+            dex
+            bne     LCEAC
+            and     #$01
+            beq     LCE8A
+            lda     (PCL),y
+            lsr
+            lsr
+            lsr
+            lsr
+            lsr
+            clc
+            adc     #$02
+            sta     $02c5
+            ldx     #$0b
+ICEC7:      lda     (PCL),y
+            and     LCE40,x
+            cmp     LCE40,x
+            beq     LCED4
+            dex
+            bne     ICEC7
+LCED4:      lda     LCE36-1,x
+            sta     ADRCODE
+            lda     LCE4B,x
+            sta     BEFLEN
+            rts
+ILOPCD:     ldy     #$00
+            ldx     BEFCODE
+            beq     LCEEB
+            jsr     SPACE                     ; output space
+            jmp     LC5DA
+LCEEB:      ldx     $02c5
+            bne     LCEF6
+            jsr     SPACE                     ; output space
+            jmp     LC5C9
+LCEF6:      lda     #$2a
+            jsr     CHROUT
+            lda     ILOPMN1-1,x
+            jsr     CHROUT
+            lda     ILOPMN2-1,x
+            jsr     CHROUT               
+            lda     ILOPMN3-1,x
+            jmp     LC616
+
         
 ;; HEXADECIMAL ADDITION AND SUBTRACTION (?)
 ADDSUB:     jsr     GETADR
@@ -1866,8 +1975,9 @@ LCD20:      lda     PCLSAVE                   ; get PC
             sta     PCL                       ; set it as current address
             stx     PCH
             jsr     DBLSPACE                  ; output two SPACE Characters
-            jsr     LC4CB                     ; 
-            jsr     LC5C7                     ; disassemble next opcode
+            jsr     LC4CB                     ;
+            jsr     ILOPCD                    ; disassemble next opcode 
+;            jsr     LC5C7                     ; disassemble next opcode
 LCD33:      jsr     GETIN                     ; get keyboard key
             beq     LCD33                     ; wait until we have something
             cmp     #$4A                      ; was it 'J'?
