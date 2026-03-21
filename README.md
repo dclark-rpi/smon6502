@@ -132,15 +132,21 @@ finishes, it should end with a `BRK` instruction.
 SMON also allows you to single-step through code using the `tw` (trace walk) command. For example:
 
 ```
+.r
+
   PC  SR AC XR YR SP  NV-BDIZC
-;2002 23 E7 00 FF FF  00100011
-.tw 2000                      
- 2002 23 E7 00 FF FF  INX     
- 2003 21 E7 01 FF FF  BNE 2002
- 2002 21 E7 01 FF FF  INX     
- 2003 21 E7 02 FF FF  BNE 2002
- 2002 21 E7 02 FF FF  INX     
- 2003 21 E7 03 FF FF  BNE 2002
+;E00E B4 E9 00 FF FF  10110100
+.tw 2000
+                      
+ 2002 23 E9 00 FF FF  00100011   INX     
+ 2003 21 E9 01 FF FF  00100001   BNE 2002
+ 2002 21 E9 01 FF FF  00100001   INX     
+ 2003 21 E9 02 FF FF  00100001   BNE 2002
+ 2002 21 E9 02 FF FF  00100001   INX     
+ 2003 21 E9 03 FF FF  00100001   BNE 2002
+
+  PC  SR AC XR YR SP  NV-BDIZC
+;2003 21 E9 04 FF FF  00100001
 ```
 
 After entering the `tw` command, SMON executes the first opcode and stops after
