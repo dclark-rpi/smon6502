@@ -35,6 +35,7 @@
 
 ;; zero-page addresses
 
+ADRBUF      := $A4                            ; Address buffer $A4 to $A9 to store three memory locations
 FLAG        := $AA                            ; Universal flag
 ADRCODE     := $AB                            ; Addressing code for assembler/disassembler
 COMMAND     := $AC                            ; SMON instruction code
@@ -45,8 +46,8 @@ NUMCMDS     := $B1                            ; Hex number of SMON commands in t
 BEFLEN      := $B6                            ; Instruction length for assembler/disassembler.
 PCL         := $FB                            ; SMON program counter (low byte)
 PCH         := $FC                            ; SMON program counter (high byte)
-ECL         := $FD                            ; Command end address (low byte)
-ECH         := $FE                            ; Command end address (high byte)
+ECL         := $FD                            ; End address for SMON command (low byte)
+ECH         := $FE                            ; End address for SMON command (high byte)
 
 ;; Outside the zero page, SMON uses the following areas:
 
@@ -62,7 +63,7 @@ SPSAVE      := $02AE                          ; Stack Pointer
 KBDBUF      := $0277                          ; Buffer for keyboard commands
 IONO        := $02B0                          ; Device-Number
 MEM         := $02B1                          ; Buffer from $02B1 to $02B7
-TRACEBUF    := $02B8                          ; Buffer for trace mode from $02B8 to $02BE   
+TRACEBUF    := $02B8                          ; Buffer for trace mode from $02B8 to $02BF   
 
 INTOUT      := $BDCD                          ; Output Positive Integer in A/X
 INTOUT1     := $BDD1                          ; Output Positive Integer in A/X
@@ -74,11 +75,28 @@ BRK_HI      := $0317                          ; Vector: BRK Hi
 LOADVECT    := $0330                          ; Vector: Kernel LOAD
 SAVEVECT    := $0332                          ; Vector: Kernel SAVE
 
+;; JMPTABLE starts at kernel address $FF81
 CHRIN       := JMPTABLE+(3*$1A) ; $FFCF       ; Kernal input routine
 CHROUT      := JMPTABLE+(3*$1B) ; $FFD2       ; Kernal output routine
 STOPKEY     := JMPTABLE+(3*$20) ; $FFE1       ; Kernal test STOP routine
 GETIN       := JMPTABLE+(3*$21) ; $FFE4       ; Kernal get input routine
 
+;; ASCII-Table control codes and characters
+CR          := $0D                            ; carriage return
+SP          := $20                            ; space
+EXCL        := $21                            ; exclamation mark      !
+DOLLAR      := $24                            ; dollar                $
+APOS        := $27                            ; single quote or tick  '
+LPAREN      := $28                            ; open bracket          (
+RPAREN      := $29                            ; close bracket         )
+AST         := $2A                            ; asterisk              *
+PLUS        := $2B                            ; plus                  +
+COMMA       := $2C                            ; comma                 ,
+MINUS       := $2D                            ; minus or hyphen       -
+PERIOD      := $2E                            ; period or dot         .
+COLON       := $3A                            ; colon                 :
+SEMI        := $3B                            ; semicolon             ;
+QUEST       := $3F                            ; question mark         ?
 
             .org    $E000
 
@@ -138,7 +156,7 @@ CMDS:       .byte   <(TICK-1),>(TICK-1)             ; '
             .byte   <(BEFDEC-1),>(BEFDEC-1)         ; #
             .byte   <(BEFHEX-1),>(BEFHEX-1)         ; $
             .byte   <(BEFBIN-1),>(BEFBIN-1)         ; %
-            .byte   <(COMMA-1),>(COMMA-1)           ; ,
+            .byte   <(COMMACMD-1),>(COMMACMD-1)     ; ,
             .byte   <(EDITMEM-1),>(EDITMEM-1)       ; :     
             .byte   <(EDITREG-1),>(EDITREG-1)       ; ; 
             .byte   <(EQUALS-1),>(EQUALS-1)         ; =
@@ -237,53 +255,53 @@ LCE4B:       .byte   $DF,$02,$02,$02,$02,$03,$03,$03
 BREAK:      cld
             ldx     #$05
 BREAK2:     pla
-            sta     PCHSAVE,x                 ; save stack
+            sta     PCHSAVE,x                 ; store stack pointer
             dex
             bpl     BREAK2
-            lda     PCLSAVE
+            lda     PCLSAVE                   ; load program counter (low byte) into accumulator
             bne     BREAK3
-            dec     PCHSAVE                   ; PC high
-BREAK3:     dec     PCLSAVE                   ; PC low  
+            dec     PCHSAVE                   ; decrement program counter stored (high byte)
+BREAK3:     dec     PCLSAVE                   ; decrement program counter stored (low byte)  
             tsx
-            stx     SPSAVE
+            stx     SPSAVE                    ; store stack pointer
             lda     #'R'                      ; execute 'R' command
             jmp     CMDSTORE                  ; jump to main loop
         
 GETSTART:   jsr     GETRETURN                 ; check for return
             beq     GETSTRTS
-GETSTART1:  jsr     GETADR
-            sta     PCLSAVE
-            lda     PCH
-            sta     PCHSAVE
+GETSTART1:  jsr     GETADR                    ; get memory address from commandline
+            sta     PCLSAVE                   ; store program counter (low byte)
+            lda     PCH                       ; load program counter (high byte)
+            sta     PCHSAVE                   ; store program counter (high byte)
 GETSTRTS:   rts
      
 ;; get 3 memory address words into $A4-$A9
-GET3ADR:    ldx     #$A4
+GET3ADR:    ldx     #ADRBUF                   ; load address buffer in $A4
             jsr     GETADRX
             jsr     GETADRX
             bne     GETADRX
 
-;; get start (FB/FC) and end (FD/FE) address from command line
+;; get start (FB/FC) and end (FD/FE) address from commandline
 ;; end address is optional, defaults to $FFFE
-GETADRSE:   jsr     GETADR                    ; get memory address from command line
-            lda     #ECH
-            sta     ECL
-            lda     #$FF
-            sta     ECH
-            jsr     GETRETURN                 ; is there more command line input?
+GETADRSE:   jsr     GETADR                    ; get memory address from commandline
+            lda     #ECH                      
+            sta     ECL                       ; store end address (low byte)
+            lda     #$FF                      ; mask
+            sta     ECH                       ; store end address (high byte)
+            jsr     GETRETURN                 ; is there more commandline input?
             bne     GETADRX                   ; yes, get another memory address
             sta     KBDBUF                    ; put NUL into keyboard buffer
             inc     $C6
             rts
 
-;; get two words from command line, store in $FB/$FC and $FD/$FE
-GETDW:      jsr     GETADR
+;; get two words from commandline, store in $FB/$FC and $FD/$FE
+GETDW:      jsr     GETADR                    ; get memory address from commandline
             .byte   $2C                       ; skip next (2-byte) opcode
 
-;; get memory address from command line, store in $FB/$FC
+;; get memory address from commandline, store in $FB/$FC
 GETADR:     ldx     #PCL
         
-;; get word from command line, store in (X)/(X+1)
+;; get word from commandline, store in (X)/(X+1)
 GETADRX:    jsr     GETBYT
             sta     $01,x
             jsr     GETBYT1
@@ -292,15 +310,15 @@ GETADRX:    jsr     GETBYT
             inx
             rts
 
-;; get byte from command line, ignore leading " " and ","
-GETBYT:     jsr     GETCHRET                  ; get next character until a carriage return
-            cmp     #$20
+;; get byte from commandline, ignore leading " " and ","
+GETBYT:     jsr     GETCHRET                  ; get next character byte until a carriage return is reached
+            cmp     #SP                       ; is character byte a space " "
             beq     GETBYT
-            cmp     #$2C
+            cmp     #COMMA                    ; is character byte a ","
             beq     GETBYT
             bne     ASCHEX                    ; convert to 0-15
 
-;; get byte from command line, return in A
+;; get byte from commandline, return in A
 GETBYT1:    jsr     GETCHRET                  ; get next character until a carriage return
 ASCHEX:     jsr     ASCHEX1                   ; convert to 0-15
             asl
@@ -314,20 +332,20 @@ ASCHEX:     jsr     ASCHEX1                   ; convert to 0-15
             rts
 
 ;; convert character in A from ASCII HEX to 0-15
-ASCHEX1:    cmp     #$3A
+ASCHEX1:    cmp     #COLON                    ; is character a ":"
             bcc     ASCHEX2
             adc     #$08
 ASCHEX2:    and     #$0F
             rts
 
-;; skip spaces from command line
+;; skip spaces from commandline
 SKIPSPACE:  jsr     GETCHRET                  ; get next character until a carriage return
-            cmp     #$20
+            cmp     #SP                       ; is character byte a space " "
             beq     SKIPSPACE
             dec     $D3
             rts
 
-;; peek whether next character on command line is CR (Z set if so)
+;; peek whether next character on commandline is CR (Z set if so)
 GETRETURN:  jsr     CHRIN
             dec     $D3
             cmp     #$0D
@@ -341,34 +359,34 @@ UCASE:      cmp     #'a'
             and     #$DF
 UCASE1:     rts
         
-;; get next character from command line, error if CR (end of line)
+;; get next character from commandline, error if CR (end of line)
 GETCHRET:   jsr     CHRIN
             jsr     UCASE
 GETCL1:     cmp     #$0D
             bne     GETBRTS
 
 ;; invalid input
-ERROR:      lda     #$3F                      ; print "?"
+ERROR:      lda     #QUEST                    ; print "?"
             jsr     CHROUT
 
 ;; main loop
-EXECUTE:    ldx     SPSAVE                         
+EXECUTE:    ldx     SPSAVE                    ; restore stack pointer                
             txs
             ldx     #$00                      ; clear keyboard buffer
             stx     $C6
             lda     $D3                       ; get cursor column
             beq     SKIPCR                    ; jump if zero
-            jsr     RETURN                    ; Output CR Character
+            jsr     RETURN                    ; output ASCII carriage return (CR)
 SKIPCR:     lda     ($D1,x)                   ; get first character of next line
             ldx     #$06                      ; compare to known line start characters: ':;,()!
 CHKCMD:     cmp     CMDTAB,x                  ; check for line start command
             beq     EXEC1                     ; if found, execute command
             dex
             bpl     CHKCMD
-            lda     #$2E                      ; print prompt (".")
+            lda     #PERIOD                   ; print prompt (".")
             jsr     CHROUT
 EXEC1:      jsr     GETCHRET                  ; get next character until a carriage return
-            cmp     #$2E 
+            cmp     #PERIOD                   ; is character "."
             beq     EXEC1                     ; ignore leading "."
             jmp     CMDSTORE                  ; check entered command is valid and execute
 NEXTCMD:    jmp     ERROR
@@ -425,14 +443,14 @@ CHAROUT:    jsr     CHROUT
             jmp     CHROUT
 
 ;; output two SPACE characters
-DBLSPACE:   jsr     SPACE
+DBLSPACE:   jsr     SPACE                     ; loop to ouput second space character
 
 ;; output SPACE Character
-SPACE:      lda     #$20
-            jmp     CHROUT
+SPACE:      lda     #SP                       ; load accumulator with a space character byte " "
+            jmp     CHROUT                    ; output space chcarcter
 
 ;; output CR Character
-RETURN:     lda     #$0D
+RETURN:     lda     #$0D                      ; ASCII Carriage Return (CR)
             jmp     CHROUT
 
 ;; print 0-terminated string pointed to by A/Y
@@ -449,9 +467,9 @@ STROUT1:    lda     ($BB),y                   ; get byte from address
 STROUT2:    rts
 
 ;; increment Program Counter(PC) in $FB/$FC
-PCINC:      inc     PCL                       ; increase low byte
+PCINC:      inc     PCL                       ; increase program counter low byte
             bne     PCRTS                     ; if not 0, then finish
-            inc     PCH                       ; increase high byte
+            inc     PCH                       ; increase program counter high byte
 PCRTS:      rts
 
 ;; HELP (H)
@@ -466,10 +484,10 @@ HLPL1:      lda     #$0D                      ; output CR
             iny                               ; next byte
             cpy     #20                       ; are we at line 20?
             bne     HLPL2                     ; jump if not
-            lda     #$20                      ; put SPACE in keyboard buffer
-            sta     KBDBUF                    ; (to pause output)
+            lda     #SP                       ; load accumulator with a space character byte " "
+            sta     KBDBUF                    ; load " " byte into keyboard buffer (to pause output)
             inc     $C6
-HLPL2:      jsr     KBDKEY                    ; check for PAUSE,STOP
+HLPL2:      jsr     KBDKEY                    ; check for PAUSE,STOP from commandline
             lda     ($BB),y                   ; get first byte of next string
             bne     HLPL1                     ; loop if not 0
             rts
@@ -478,12 +496,12 @@ HLPL2:      jsr     KBDKEY                    ; check for PAUSE,STOP
 REGISTER:   ldy     #>REGHDR
             lda     #<REGHDR
             jsr     STROUT
-            ldx     #$3B                      ; load x with ";"
-            jsr     CHARRTN                   ; New line followed by a character from x
-            lda     PCHSAVE                   ; save program counter high byte
-            sta     PCH
-            lda     PCLSAVE                   ; save program counter low byte
-            sta     PCL
+            ldx     #$3B
+            jsr     CHARRTN                   ; new line followed by a character from x
+            lda     PCHSAVE                   ; load program counter (high byte) into accumulator
+            sta     PCH                       ; restore program counter (high byte)
+            lda     PCLSAVE                   ; load program counter (low byte) into accumulator
+            sta     PCL                       ; restore program counter (low byte)
             jsr     HEXOUT                    ; output as 4 digit hex
             jsr     SPACE                     ; output SPACE character
             ldx     #PCL
@@ -492,8 +510,8 @@ REGISTER1:  lda     $01AF,x
             jsr     SPACE                     ; output SPACE character
             inx
             bne     REGISTER1
-            lda     SRSAVE
-            jmp     EDITBIN
+            lda     SRSAVE                    ; load processor status flag register into accumulator
+            jmp     FLG2BIN                   ; display processor flags as binary string
         
 ;; EDIT PROCESSOR REGISTERS (;)
 EDITREG:    jsr     GETSTART1
@@ -504,22 +522,22 @@ CHNGREG:    jsr     GETCHRET                  ; get next character until a carri
             inx
             bne     CHNGREG
             jsr     SPACE                     ; output SPACE Character
-            lda     SRSAVE,x
-            jmp     EDITBIN
-EDITBIN:    sta     FLAG
-            lda     #$20
+            lda     SRSAVE,x                  ; load processor status flag register into accumulator
+            jmp     FLG2BIN                   ; display processor flags as binary string
+FLG2BIN:    sta     FLAG
+            lda     #SP                       ; load accumulator with a space character byte " "
             ldy     #$09
-CHNGBIN:    jsr     CHROUT
+STR2BIN:    jsr     CHROUT
             asl     FLAG
             lda     #$30
             adc     #$00
             dey
-            bne     CHNGBIN
+            bne     STR2BIN
             rts
         
 ;; RUN PROGRAM - GO (G)
 GO:         jsr     GETSTART
-            ldx     SPSAVE
+            ldx     SPSAVE                    ; load stack pointer
             txs
             ldx     #$FA
 GO_LOOP:    lda     $01AE,x
@@ -537,7 +555,7 @@ GO_LOOP:    lda     $01AE,x
 LOAD:       lda     #13
             jsr     CHROUT
 LDNXT:      jsr     UAGETW                    ; get character from UART
-            cmp     #' '
+            cmp     #SP                       ; is character byte a space " "
             beq     LDNXT                     ; ignore space at beginning of line
             cmp     #13
             beq     LDNXT                     ; ignore CR at beginning of line
@@ -644,10 +662,10 @@ MEMDUMP:    jsr     GETCHRET                  ; get next character until a carri
 MD1:        cmp     #'S'
             bne     MD2
             jmp     MEMSIZ
-MD2:        cmp     #' '
+MD2:        cmp     #SP                       ; is character byte a space " "
             bne     MEMERR
 MD3:        jsr     GETADRSE                  ; get start (FB/FC) and end address (FD/FE)
-MEMDUMP1:   ldx     #$3A                      ; ':'
+MEMDUMP1:   ldx     #COLON                    ; load x register with ":"
             jsr     CHARRTN                   ; New line followed by a character from x
             jsr     HEXOUT                    ; print address in FB/FC
             ldy     #80-17
@@ -668,14 +686,14 @@ MEMDUMP3:   lda     (PCL,x)
             rts
 
 ;; EDIT MEMORY (:)
-EDITMEM:    jsr     GETADR                    ; get start address
+EDITMEM:    jsr     GETADR                    ; get start address from commandline
             ldy     #80-17
             ldx     #$00
 MEMCHAR:    cpy     #80-9
             bne     NEXTCHAR
             iny
 NEXTCHAR:   jsr     CHRIN                     ; get next character
-            cmp     #$20                      ; is next character a space
+            cmp     #SP                       ; is next character byte a space " "
             beq     MEMCHAR                   ; skip space
             cmp     #$0D                      ; is next character a carriage return
             beq     MEMRTS                    ; if a carriage return end
@@ -701,7 +719,7 @@ OCCUPY:     jsr     GETDW                     ; get address range
             beq     MEM_ZERO                  ; if CR then branch to erase with zero's subroutine
             jsr     GETBYT                    ; get next commandline byte from subroutine
             pha
-            jsr     RETURN                    ; output CR character
+            jsr     RETURN                    ; output ASCII carriage return (CR)
             pla
 OCCUPY1:    ldx     #$00                      ; jmp from erase command
 OCCUPY2:    sta     (PCL,x)                   ; this routine does the memory change
@@ -717,12 +735,12 @@ MEM_ZERO:   lda     #$00                      ; set accumulator value to zero
         
 ;; put character into screen buffer at column Y
 ;; (make sure it is printable first)
-ASCII:      cmp     #$20                      ; character code < 32 (space)
+ASCII:      cmp     #$20                      ; is character code byte < 32 decimal
             bcc     ASCII_1                   ; if so, print "."
-            cmp     #$7F                      ; character code >= 127
+            cmp     #$7F                      ; is character code byte >= 127 decimal
             bcs     ASCII_1                   ; if so, print "."
             bcc     ASCII_2                   ; print character
-ASCII_1:    lda     #$2E                      ; load "." into accumulator
+ASCII_1:    lda     #PERIOD                   ; load "." into accumulator
 ASCII_2:    sta     ($D1),y
             lda     $0286
             sta     ($F3),y
@@ -741,10 +759,10 @@ CHECKEND:   jsr     KBDKEY                    ; end-of-line wait handling
 CMPEND:     jsr     PCINC                     ; increment program counter
         
 ;; check whether end address has been reached, C is clear if not
-CMPEND1:    lda     PCL
-            cmp     ECL
-            lda     PCH
-            sbc     ECH
+CMPEND1:    lda     PCL                       ; load program counter (low byte) into accumulator
+            cmp     ECL                       ; compare acculator with end address (low byte)
+            lda     PCH                       ; load program counter (high byte) into accumulator
+            sbc     ECH                       ; subtract end address (high byte) from accumulator
             rts
 
 ;; end-of-line wait handling:
@@ -755,14 +773,14 @@ KBDKEY:     jsr     SCANKEY                   ; check for STOP or keypress
             beq     KBDRTS                    ; no key => done
 KBDKEY1:    jsr     SCANKEY                   ; check for STOP or keypress
             beq     KBDKEY1                   ; no key => wait
-            cmp     #$20                      ; is SPACE?
+            cmp     #SP                       ; is character byte a space " "
             bne     KBDRTS                    ; no => done
             sta     KBDBUF                    ; put SPACE in keyboard buffer
             inc     $C6                       ; (i.e. advance just one line)
 KBDRTS:     rts
 
 ;; check for STOP or other keypress
-SCANKEY:    jsr     GETIN                     ; get input character
+SCANKEY:    jsr     GETIN                     ; get input character (kernal subroutine)
             pha                               ; save char
             jsr     STOPKEY                   ; check stop key
             beq     STOP                      ; jump if pressed
@@ -817,8 +835,6 @@ LC51F:      lda     LC0EA,x
             lda     LC0D8,x
             sta     BEFLEN
             jmp     ILOPCM
-;            ldx     BEFCODE
-;            rts
         
 LC52C:      ldy     #$01
             lda     (PCL),y
@@ -843,13 +859,13 @@ LC54A:      ldy     #$01
             bpl     LC551
             dey
 LC551:      sec
-            adc     PCL
+            adc     $FB
             tax
             inx
             beq     LC559
             dey
 LC559:      tya
-            adc     PCH
+            adc     $FC
 LC55C:      rts
 
         
@@ -866,17 +882,17 @@ LC564:      jsr     LC58C
             cmp     #$21
             bne     LC586
             nop
-LC576:      jsr     RETURN                    ; Output CR Character
+LC576:      jsr     RETURN                    ; output ASCII carriage return (CR)
             ldx     #$23
-            lda     #$2D
-LC580:      jsr     CHROUT
+            lda     #MINUS                    ; load accumulator with minus character byte "-"
+LC580:      jsr     CHROUT                    ; output a minus character "-"
             dex
             bne     LC580
 LC586:      jsr     CHECKEND
             bcc     LC564
             rts
         
-LC58C:      ldx     #$2C                      ; output NEWLINE followed by ","
+LC58C:      ldx     #COMMA                    ; output NEWLINE followed by ","
             jsr     CHARRTN                   ; New line followed by a character from x
             jsr     HEXOUT                    ; output FB/FC (address)
             jsr     SPACE                     ; output SPACE Character
@@ -898,7 +914,7 @@ LC5B5:      jsr     DBLSPACE                  ; output two SPACE Characters
             jsr     SPACE                     ; output SPACE Character
             dex
             bne     LC5B5
-SPCOC:      jmp     ILOPCD                   ; output opcode with leading space
+SPCOC:      jmp     ILOPCD                   ; output illegal opcode
             .byte   $D2
             .byte   $FF
             ldy     #$00
@@ -944,7 +960,7 @@ LC616:      jsr     CHROUT
             lda     #$20
             bit     ADRCODE
             beq     LC622
-            jsr     DBLSPACE                  ; output two SPACE Characters
+            jsr     DBLSPACE                  ; output two SPACE characters
 LC622:      ldx     #$20
             lda     #$04
             bit     ADRCODE
@@ -975,7 +991,7 @@ LC657:      lda     LC0AC,y
             beq     LC667
             lda     LC0AF,y
             ldx     LC0B2,y
-            jsr     CHAROUT                   ; Output character followed by X
+            jsr     CHAROUT                   ; output character followed by X
 LC667:      dey
             bne     LC657
 LC66A:      lda     BEFLEN
@@ -987,10 +1003,10 @@ LC66C:      jsr     PCINC                     ; increment program counter
 
 ;; erase screen buffer to end of line
 LC675:      ldy     $D3
-            lda     #' '
+            lda     #SP                       ; load accumulator with a space character byte " "
 LC679:      sta     ($D1),y
             iny
-            cpy     #40
+            cpy     #$28
             bcc     LC679
             rts
         
@@ -1021,25 +1037,25 @@ LC69A:      bne     LC6B8
 ;; get first character that is not " $(," (max 4)
 LC6A1:      lda     #$04
             sta     $B5
-LC6A5:      jsr     CHRIN                     ; get character
-            cmp     #$20                      ; is it space?
+LC6A5:      jsr     CHRIN                     ; get new character byte
+            cmp     #SP                       ; is charcter byte a space " "
             beq     LC6B9                     ; 
-            cmp     #$24                      ; is it "$"?
+            cmp     #DOLLAR                   ; is character byte a dollar "$"
             beq     LC6B9
-            cmp     #$28                      ; is it "("?
+            cmp     #LPAREN                   ; is character byte a open bracket "("
             beq     LC6B9
-            cmp     #$2C                      ; is it ","?
+            cmp     #COMMA                    ; is character byte a comma ","
             beq     LC6B9
-            jsr     UCASE                     ; convert to uppercase
+            jsr     UCASE                     ; convert ASCII characters to uppercase
 LC6B8:      rts
 
 ;; character was either " ", "$", "(" or ","
 LC6B9:      dec     $B5
-            bne     LC6A5                     ; get next character
+            bne     LC6A5                     ; get next character byte
             rts
         
 LC6BE:      cpx     #$18
-            bmi     LC6D0
+            bmi     LC6D0                     
             lda     LOPER
             nop
             sec
@@ -1057,7 +1073,7 @@ ASSEMBLER:
             sta     ECL
             lda     PCH
             sta     ECH
-LC6DA:      jsr     RETURN                    ; Output CR Character
+LC6DA:      jsr     RETURN                    ; output ASCII carriage return (CR)
 LC6DD:      jsr     LC6E4                     ; get and assemble line
             bmi     LC6DD
             bpl     LC6DA
@@ -1074,13 +1090,13 @@ LC6E4:      lda     #$00
             bne     LC701
 
 ;; entry point from "," command (assemble single line)
-COMMA:      ldx     #$80                      ; set "comma" flag
+COMMACMD:   ldx     #$80                      ; set "commacmd" flag
             stx     MEM
 LC701:      stx     FLAG
             jsr     GETADR                    ; get memory address from command line
             lda     #$25                      ; set last input char (37)
             sta     LASTCOL
-            bit     MEM                       ; skip the following if "comma" flag NOT set
+            bit     MEM                       ; skip the following if "commacmd" flag NOT set
             bpl     LC717
             ldx     #$0A                      ; skip 10 characters (for "," command)
 LC711:      jsr     CHRIN           
@@ -1106,7 +1122,7 @@ LC729:      lda     $FA,x                     ; swap $FB/$FC and $FD/$FE
             dex
             bne     LC729
             jmp     LC564                     ; disassemble
-LC739:      cmp     #$2E                      ; was character "."?
+LC739:      cmp     #PERIOD                   ; is character byte a "."
             bne     LC74E                     ; jump if not
             jsr     GETBYT1
             ldy     #$00
@@ -1119,11 +1135,11 @@ LC74C:      dey
             rts
         
 LC74E:      ldx     #ECL
-            cmp     #$4D                      ; was character "M"?
+            cmp     #$4D                      ; is character byte a "M"
             bne     LC76D                     ; jump if not
             jsr     GETBYT1
             ldy     #$00
-            cmp     #$3F
+            cmp     #QUEST                    ; is character byte a "?"
             bcs     LC74C
             asl
             tay
@@ -1134,32 +1150,32 @@ LC74E:      ldx     #ECL
             sta     $033C,y
 
 ;; read 3 opcode characters and store in $a6-$a8
-LC76A:      jsr     LC6A1                     ; get a character
-LC76D:      sta     $A9,x                     ; store character
+LC76A:      jsr     LC6A1                     ; get new character byte
+LC76D:      sta     $A9,x                     ; store character byte
             cpx     #ECL
             bne     LC777
             lda     #$07
             sta     $B7
 LC777:      inx
-            bne     LC76A                     ; get more characters (total 3)
+            bne     LC76A                     ; get more character bytes (total 3)
             ldx     #$38
 
-;; find mnemonic in table
-LC77C:      lda     $A6                       ; get first opcode char
+;; find 6502 opcode mnemonic in table
+LC77C:      lda     $A6                       ; get first opcode character
             cmp     OPMN1-1,x                 ; find it in table
             beq     LC788                     ; jump if found
 LC783:      dex
             bne     LC77C
             dex
             rts                               ; not found => error exit
-LC788:      lda     $A7                       ; get second opcode char
+LC788:      lda     $A7                       ; get second opcode character
             cmp     OPMN2-1,x                 ; compare with expected
             bne     LC783                     ; repeat if no match
-            lda     $A8                       ; get third opcode char
+            lda     $A8                       ; get third opcode character
             cmp     OPMN3-1,x                 ; compare with expected
             bne     LC783                     ; repeat if no match
 
-;; found mnemonic
+;; 6502 opcode mnemonic found
             lda     OPC-1,x                   ; get opcode
             sta     BEFCODE                   ; store opcode
             jsr     LC6A1                     ; get another character
@@ -1203,7 +1219,7 @@ LC7E9:      sty     ADRCODE
             cmp     #$58
             jsr     LC69A
             ldx     #$04
-            cmp     #$29
+            cmp     #RPAREN                   ; is character byte a ")"
             jsr     LC69A
             ldx     #$02
             cmp     #$59
@@ -1245,26 +1261,26 @@ ILOPCM:     ldx     BEFCODE
             bne     LCE8A
             ldx     #$01
             lda     (PCL),y
-            cmp     #$9c
+            cmp     #$9C
             beq     LCE9F
             cmp     #$80
             beq     ILLOPC
             cmp     #$89
             beq     ILLOPC
-            and     #$0f 
+            and     #$0F 
             cmp     #$02
             beq     LCE8B
-            cmp     #$0a
+            cmp     #$0A
             beq     LCE83
             inx
             cmp     #$04
             beq     LCE83
             inx
-            cmp     #$0c
+            cmp     #$0C
             bne     LCE9F
 LCE83:      stx     BEFLEN
             ldx     #$01
-            stx     $02c5
+            stx     $02C5
 LCE8A:      rts
 LCE8B:      lda     (PCL),y
             and     #$90
@@ -1273,15 +1289,15 @@ LCE8B:      lda     (PCL),y
             ldx     #$02
             bne     LCE83
 LCE97:      stx     BEFLEN
-            ldx     #$0a
-            stx     $02c5
+            ldx     #$0A
+            stx     $02C5
             rts
 LCE9F:      ldy     #$02
             sty     BEFLEN
             ldy     #$00
-            sty     $02c5
+            sty     $02C5
             lda     (PCL),y
-            ldx     #$0f
+            ldx     #$0F
 LCEAC:      cmp     ILOPC,x
             beq     LCE8A
             dex
@@ -1296,8 +1312,8 @@ LCEAC:      cmp     ILOPC,x
             lsr
             clc
             adc     #$02
-            sta     $02c5
-            ldx     #$0b
+            sta     $02C5
+            ldx     #$0B
 ICEC7:      lda     (PCL),y
             and     LCE40,x
             cmp     LCE40,x
@@ -1314,11 +1330,11 @@ ILOPCD:     ldy     #$00
             beq     LCEEB
             jsr     SPACE                     ; output space
             jmp     LC5DA
-LCEEB:      ldx     $02c5
+LCEEB:      ldx     $02C5
             bne     LCEF6
             jsr     SPACE                     ; output space
             jmp     LC5C9
-LCEF6:      lda     #$2a
+LCEF6:      lda     #$2A
             jsr     CHROUT
             lda     ILOPMN1-1,x
             jsr     CHROUT
@@ -1336,7 +1352,7 @@ ADDSUB:     jsr     GETADR
             lsr
             php
             jsr     GETADRX
-            jsr     RETURN                    ; Output CR Character
+            jsr     RETURN                    ; output ASCII carriage return (CR)
             plp
             bcs     LC8BA
             lda     ECL
@@ -1369,7 +1385,7 @@ LC8C5:      sty     PCH
             lda     PCL
             jsr     HEXOUT1
             lda     PCL
-            jsr     EDITBIN
+            jsr     FLG2BIN                   ; display processor flags as binary string
             beq     LC8EB
 LC8E8:      jsr     HEXOUT
 LC8EB:      jsr     SPACE                     ; output SPACE Character
@@ -1416,7 +1432,7 @@ LC934:      stx     PCL
             sta     PCH
             tay
             jsr     CHRIN
-            cmp     #$3A
+            cmp     #COLON                    ; is character byte a ":"
             bcs     LC8C4
             sbc     #$2F
             bcs     LC948
@@ -1446,11 +1462,11 @@ LC948:      sta     ECL
         
 ;; WRITE (W) - move memory
 WRITE:      jsr     GET3ADR
-            jsr     RETURN                    ; output CR character
-WRITE1:     lda     $A6
+            jsr     RETURN                    ; output ASCII carriage return (CR)
+WRITE1:     lda     ADRBUF+2                  ; load address buffer $A6
             bne     LC9DC
-            dec     $A7
-LC9DC:      dec     $A6
+            dec     ADRBUF+3                  ; decrement memory address in address buffer $A7
+LC9DC:      dec     ADRBUF+2                  ; decrement memory address in address buffer $A6
             jsr     LCA30
             stx     $B5
             ldy     #$02
@@ -1458,29 +1474,29 @@ LC9DC:      dec     $A6
             ldx     #$02
             ldy     #$00
 LC9EB:      clc
-            lda     $A6
-            adc     LOPER
+            lda     ADRBUF+2                  ; load new memory address in address buffer $A6
+            adc     $AE
             sta     FLAG
-            lda     $A7
-            adc     HOPER
+            lda     ADRBUF+3                  ; load new memory address in address buffer $A7
+            adc     $AF
             sta     ADRCODE
-LC9F8:      lda     ($A4,x)
-            sta     ($A8,x)
-            eor     ($A8,x)
+LC9F8:      lda     (ADRBUF,x)                ; load value in address buffer $A4 with index x
+            sta     (ADRBUF+4,x)              ; store address buffer $A8 with index x
+            eor     (ADRBUF+4,x)              ; exclusive-OR address buffer $A8 with accumulator
             ora     $B5
             sta     $B5
-            lda     $A4
-            cmp     $A6
-            lda     $A5
+            lda     ADRBUF                    ; load value in address buffer $A4
+            cmp     ADRBUF+2                  ; compare accumulator with address buffer $A6
+            lda     ADRBUF+1                  ; address buffer $A5
             sbc     $A7
             bcs     LCA29
 LCA0C:      clc
-            lda     $A4,x
+            lda     ADRBUF,x                  ; load value in address buffer $A4 with index x
             adc     OFFSET,y
-            sta     $A4,x
-            lda     $A5,x
+            sta     ADRBUF,x                  ; store value in address buffer $A4 with index x
+            lda     ADRBUF+1,x                ; load value in address buffer $A5 with index x
             adc     OFFSET+1,y
-            sta     $A5,x
+            sta     ADRBUF+1,x                ; store value in address buffer $A5 with index x
             txa
             clc
             adc     #$04
@@ -1508,26 +1524,26 @@ CONVERT:    jsr     LCA62                     ; convert addresses
 
 ;; SHIFT (V) - convert addresses referencing a memory region
 MOVE:       jmp     LCA62
-LCA46:      cmp     $A7
+LCA46:      cmp     ADRBUF+3                  ; compare address buffer $A7 with accumulator
             bne     LCA4C
-            cpx     $A6
+            cpx     ADRBUF+2                  ; compare address buffer $A6 with X register
 LCA4C:      bcs     LCA61
-            cmp     $A5
+            cmp     ADRBUF+1                  ; compare address buffer $A5 with accumulator
             bne     LCA54
-            cpx     $A4
+            cpx     ADRBUF                    ; compare address buffer $A4 with X register
 LCA54:      bcc     LCA61
             sta     $B4
             txa
             clc
-            adc     LOPER
+            adc     $AE
             tax
             lda     $B4
-            adc     HOPER
+            adc     $AF
 LCA61:      rts      
 LCA62:      jsr     GET3ADR                   ; get address range and destination
             jsr     GETDW                     ; get range
-            jsr     RETURN                    ; Output CR Character
-MOVE1:      jsr     LCA30                     ; jump from Y command
+            jsr     RETURN                    ; output ASCII carriage return (CR)
+MOVE1:      jsr     LCA30                     
 LCA6B:      jsr     LC4CB
             iny
             lda     #$10
@@ -1549,7 +1565,7 @@ LCA6B:      jsr     LC4CB
             sta     (PCL),y
             eor     $B5
             bpl     LCAAE
-            jsr     RETURN                    ; Output CR Character
+            jsr     RETURN                    ; output ASCII carriage return (CR)
             jsr     HEXOUT
 LCA9B:      bit     ADRCODE
             bpl     LCAAE
@@ -1589,12 +1605,12 @@ LCADA:      rts
 TICK:       jsr     GETADR                    ; get starting memory address
             ldy     #$03                      ; skip up to 3 spaces
 LCAE0:      jsr     CHRIN
-            cmp     #' '                      ; is it a space?
+            cmp     #SP                       ; is character byte a space " "
             bne     TSTRT                     ; jump if not
             dey
             bne     LCAE0
 TLOOP:      jsr     CHRIN                     ; get character
-TLOOP1:     cmp     #$0D                      ; is it CR?
+TLOOP1:     cmp     #CR                       ; is character byte a carriage return
             beq     TEND                      ; done if so
             sta     (PCL),y                   ; store character
 LCAEF:      iny
@@ -1623,7 +1639,7 @@ FIND:       lda     #$FF                      ; set start and end address to $FF
 LCB15:      sta     $FA,x
             dex
             bne     LCB15
-            jsr     GETCHRET                  ; get next character until a carriage return
+            jsr     GETCHRET                  ; get next character byte until a carriage return
             ldx     #$05
 LCB1F:      cmp     FSCMD-1,x                 ; compare with sub-command char (AZIRT)
             beq     LCB69                     ; jump if found
@@ -1635,13 +1651,13 @@ LCB1F:      cmp     FSCMD-1,x                 ; compare with sub-command char (A
 LCB27:      stx     $A9                       ; store number of bytes
             jsr     LCBB4                     ; get search data for byte (two nibbles+bit masks)
             inx                               ; next byte
-            jsr     CHRIN                     ; get next character
-            cmp     #' '                      ; is it space?
+            jsr     CHRIN                     ; get next character byte
+            cmp     #SP                       ; is character byte a space " "
             beq     LCB27                     ; skip if so
-            cmp     #$2C                      ; is it ","
+            cmp     #COMMA                    ; is character byte a ","
             bne     LCB3B                     ; repeat if not
             jsr     GETDW                     ; get start and end address of range
-LCB3B:      jsr     RETURN                    ; Output CR Character
+LCB3B:      jsr     RETURN                    ; output ASCII carriage return (CR)
 LCB3E:      ldy     $A9                       ; get number of bytes in sequence
 LCB40:      lda     (PCL),y                   ; get next byte in memory
             jsr     LCBD6                     ; compare A with byte in expected sequence
@@ -1650,11 +1666,11 @@ LCB40:      lda     (PCL),y                   ; get next byte in memory
             bpl     LCB40                     ; repeat until last byte in dequence
             jsr     HEXOUT                    ; found a match => print current address
             jsr     SPACE                     ; output SPACE Character
-            ldy     $D3                       ; get cursor coumn
+            ldy     $D3                       ; get cursor column
             cpy     #76                       ; compare to 76
             bcc     LCB5F                     ; jump if less
             jsr     KBDKEY                    ; handle PAUSE/STOP
-            jsr     RETURN                    ; Output CR Character
+            jsr     RETURN                    ; output ASCII carriage return (CR)
 LCB5F:      jsr     CMPEND                    ; increment current location and check end
             bcc     LCB3E                     ; repeat if end has not been reached
             ldy     #$27
@@ -1662,9 +1678,9 @@ LCB5F:      jsr     CMPEND                    ; increment current location and c
 
 ;; execute "find" sub-command AZIRT with index in X
 LCB69:      lda     FSFLAG-1,x
-            sta     $A8
+            sta     ADRBUF+4                  ; store accumulator in address buffer $A8
             lda     FSFLAG1-1,x               ; get length of data item (2=word/1=byte/0=none)
-            sta     $A9                       ; store
+            sta     ADRBUF+5                  ; store address buffer $A9 into accumulator
             tax                               ; into x
             beq     LCB7C                     ; skip getting argument if 0
 LCB76:      jsr     LCBB4                     ; get two nibbles
@@ -1673,7 +1689,7 @@ LCB76:      jsr     LCBB4                     ; get two nibbles
 LCB7C:      jsr     GETDW                     ; get start and end address
 LCB7F:      jsr     LC4CB
             jsr     LC52C
-            lda     $A8
+            lda     ADRBUF+4                  ; load address buffer $A8 in accumulator
             bit     ADRCODE
             bne     LCB94
             tay
@@ -1681,7 +1697,7 @@ LCB7F:      jsr     LC4CB
             lda     BEFCODE
             bne     LCBAF
             beq     LCBA1
-LCB94:      ldy     $A9
+LCB94:      ldy     ADRBUF+5                  ; load address buffer $A9 into Y register
 LCB96:      lda     BEFCODE,y
             jsr     LCBD6
             bne     LCBAF
@@ -1706,9 +1722,9 @@ LCBB4:      jsr     LCBC0
             sta     $036C,x
         
 ;; get nibble from command line, checking for wildcard ('*')
-LCBC0:      jsr     GETCHRET                  ; get next character until a carriage return
+LCBC0:      jsr     GETCHRET                  ; get next character byte until a carriage return
             ldy     #$0F                      ; bit mask $0F
-            cmp     #'*'                      ; is it '*'?
+            cmp     #AST                      ; is character byte a '*'?
             bne     LCBCB                     ; jump if not
             ldy     #$00                      ; bit mask $00
 LCBCB:      jsr     ASCHEX1                   ; convert char to nibble $0-$F
@@ -1743,7 +1759,7 @@ MSL1:       ldx     #$01                      ; get 00,01,FF,FF
             dex
             stx     ECL
             stx     ECH
-            jsr     RETURN                    ; Output CR Character
+            jsr     RETURN                    ; output ASCII carriage return (CR)
             ldx     #$00
 MSL2:       lda     (PCL,x)                   ; save current value
             tay
@@ -1766,26 +1782,26 @@ MSL5:       sta     (PCL,x)
             rts                               ; done
         
 ;; MEMORY TEST (MT)
-MEMTST:     ldx     #$A4
-            jsr     GETADRX         ; get start address
-            jsr     GETADRX         ; get end address
-            ldy     #1              ; default: 1 repetition
-            jsr     GETRETURN       ; do we have more arguments?
-            beq     MTL1            ; skip if not
-            jsr     GETBYT          ; get number of repetitions
+MEMTST:     ldx     #ADRBUF                   ; load address buffer $A4
+            jsr     GETADRX                   ; get start address
+            jsr     GETADRX                   ; get end address
+            ldy     #1                        ; default: 1 repetition
+            jsr     GETRETURN                 ; do we have more arguments?
+            beq     MTL1                      ; skip if not
+            jsr     GETBYT                    ; get number of repetitions
             tay
-MTL1:       sty     $FF             ; store number of repetitions
-            lda     PCH             ; get high byte of start address
-            bne     MTL2            ; is it greater than zero?
-            jmp     ERROR           ; no => can't test zero-page memory
-MTL2:       jsr     RETURN                              ; Output CR Character
+MTL1:       sty     $FF                       ; store number of repetitions
+            lda     PCH                       ; get high byte of start address
+            bne     MTL2                      ; is it greater than zero?
+            jmp     ERROR                     ; no => can't test zero-page memory
+MTL2:       jsr     RETURN                    ; output ASCII carriage return (CR)
 MTL3:       ldx     #3
-MTL4:       lda     $A4,x           ; get start and end address back
-            sta     PCL,x           ; from temp to FB-FE
+MTL4:       lda     ADRBUF,x                  ; get start and end address back from address buffer $A4
+            sta     PCL,x                     ; from temp to FB-FE
             dex
             bpl     MTL4
             ldx     #0
-MTL5:       lda     (PCL,x)         ; save current value
+MTL5:       lda     (PCL,x)                   ; save current program counter (low byte) value
             tay
             lda     #$00
             sta     (PCL,x)
@@ -1810,8 +1826,8 @@ MTL7:       tya
             jsr     PCINC                     ; increment program counter
             jsr     CMPEND1                   ; check if we've tested the whole range
             bcc     MTL5                      ; repeat if not
-            lda     #'+'                      ; print pacifier
-            jsr     CHROUT
+            lda     #PLUS                     ; load accumulator with plus character byte "+"
+            jsr     CHROUT                    ; output plus character "+"
             dec     $FF                       ; decrement repetition count
             bne     MTL3                      ; go again until 0
             rts
@@ -1824,18 +1840,18 @@ TRACE:      .if     VIA == 0
             pla
             jsr     CHRIN
             jsr     UCASE
-            cmp     #$57
-            bne     LCBFD
+            cmp     #$57                      ; is character byte a "W"
+            bne     LCBFD                     ; jmp to next condition if not true
             jmp     LCD56                     ; TW command
-LCBFD:      cmp     #$42
-            bne     LCC04
+LCBFD:      cmp     #$42                      ; is character byte a "B"
+            bne     LCC04                     ; jmp to next condidition if not true
             jmp     LCDD0                     ; TB command
-LCC04:      cmp     #$51
-            bne     LCC0B
+LCC04:      cmp     #$51                      ; is character byte a "Q"
+            bne     LCC0B                     ; jmp to next condition if not true
             jmp     LCD4F                     ; TQ command
-LCC0B:      cmp     #$53
+LCC0B:      cmp     #$53                      ; is character byte a "S"
             beq     LCC12                     ; TS command
-            jmp     ERROR
+            jmp     ERROR                     ; generate an error if there is no match
 
 ;; TRACE STOP (TS)
 LCC12:      jsr     GETBYT
@@ -1845,7 +1861,7 @@ LCC12:      jsr     GETBYT
             jsr     GETSTART
             ldy     #$00
             lda     (PCL),y
-            sta     $02BC
+            sta     TRACEBUF+4                ; $02BC trace buffer memory address
             tya
             sta     (PCL),y
             lda     #<TBINT                   ; set BREAK vector
@@ -1858,18 +1874,18 @@ LCC12:      jsr     GETBYT
 ;; entry point after breakpoint is hit
 TBINT:      ldx     #$03
 LCC38:      pla
-            sta     SRSAVE,x
+            sta     SRSAVE,x                  ; store processor status flag register
             dex
             bpl     LCC38
             pla
             pla
             tsx
-            stx     SPSAVE
-            lda     PCHSAVE
-            sta     PCH
-            lda     PCLSAVE
-            sta     PCL
-            lda     $02BC
+            stx     SPSAVE                    ; store stack pointer
+            lda     PCHSAVE                   ; load program counter (high byte) into accumulator
+            sta     PCH                       ; restore program counter (high byte)
+            lda     PCLSAVE                   ; load program counter (low byte) into accumulator
+            sta     PCL                       ; restore program counter (low byte)
+            lda     TRACEBUF+4                ; $02BC trace buffer memory address
             ldy     #$00
             sta     (PCL),y
             lda     #<BREAK                   ; restore BREAK vector
@@ -1878,24 +1894,24 @@ LCC38:      pla
             sta     BRK_HI
             lda     #$52
             jmp     CMDSTORE
-LCC65:      jsr     RETURN                    ; Output CR Character
+LCC65:      jsr     RETURN                    ; output ASCII carriage return (CR)
 RTSCMD:     rts
-            sta     AKSAVE
+            sta     AKSAVE                    ; store accumulator value
             php
             pla
             and     #$EF
-            sta     SRSAVE
-            stx     XRSAVE
-            sty     YRSAVE
+            sta     SRSAVE                    ; store processor status flag register
+            stx     XRSAVE                    ; store X register value
+            sty     YRSAVE                    ; store Y register value
             pla
             clc
             adc     #$01
-            sta     PCLSAVE
+            sta     PCLSAVE                   ; store program counter (low byte) value
             pla
             adc     #$00
-            sta     PCHSAVE
+            sta     PCHSAVE                   ; store program counter (high byte) value
             lda     #$80
-            sta     $02BC
+            sta     TRACEBUF+4                ; $02BC trace buffer memory address
             bne     LCCA5
 
 ;; entry point from TW after an instruction has been executed
@@ -1914,40 +1930,40 @@ TWINT:      lda     #$40                      ; clear VIA timer 1 interrupt flag
             .endif
             ldx     #$05                      ; get registers from stack
 LCC9E:      pla                               ; (were put there when IRQ happened)
-            sta     PCHSAVE,x                 ; store them in PCHSAVE area
+            sta     PCHSAVE,x                 ; store them in PCHSAVE memory location x
             dex
             bpl     LCC9E
 LCCA5:      lda     IRQ_LO                    ; save IRQ pointer
-            sta     $02BB
+            sta     TRACEBUF+3                ; $02BB trace buffer memory address
             lda     IRQ_HI
-            sta     $02BA
+            sta     TRACEBUF+2                ; $02BA trace buffer memory address
             tsx
-            stx     SPSAVE                    ; save stack pointer
+            stx     SPSAVE                    ; store stack pointer
             cli                               ; allow interrupts     
-            lda     SRSAVE
+            lda     SRSAVE                    ; load processor status flag register into accumulator
             and     #$10
             beq     LCCC5
 LCCBD:      jsr     LCC65
             lda     #$52
             jmp     CMDSTORE
-LCCC5:      bit     $02BC
+LCCC5:      bit     TRACEBUF+4                ; $02BC trace buffer memory address
             bvc     LCCE9
             sec
-            lda     PCLSAVE
-            sbc     $02BD
+            lda     PCLSAVE                   ; restore program counter (low byte)
+            sbc     TRACEBUF+5                ; subtract $02BD trace buffer memory address
             sta     MEM
-            lda     PCHSAVE
-            sbc     $02BE
+            lda     PCHSAVE                   ; restore program counter (high byte)
+            sbc     TRACEBUF+6                ; subtract $02BE trace buffer memory address
             ora     MEM
             bne     LCD46
-            lda     $02BF
+            lda     TRACEBUF+7                ; $02BF trace buffer memory address
             bne     LCD43
             lda     #$80
-            sta     $02BC
+            sta     TRACEBUF+4                ; $02BC trace buffer memory address
 LCCE9:      bmi     LCCFD
-            lsr     $02BC
+            lsr     TRACEBUF+4                ; $02BC trace buffer memory address
             bcc     LCCBD
-            ldx     SPSAVE
+            ldx     SPSAVE                    ; load stack pointer into X register
             txs
             lda     #>RTSCMD
             pha
@@ -1955,8 +1971,8 @@ LCCE9:      bmi     LCCFD
             pha
             jmp     LCDBA
 LCCFD:      jsr     LCC65
-            lda     #$A8
-            sta     PCL
+            lda     #ADRBUF+4                 ; load address buffer $A8 into accumulator
+            sta     PCL                       ; store accumulator into program counter (low byte)
             lda     #$02
             sta     PCH
             jsr     SPACE                     ; output SPACE Character
@@ -1970,22 +1986,24 @@ LCD0D:      lda     (PCL),y
             beq     LCD0D
             jsr     SPACE                     ; output SPACE Character
             bne     LCD0D
-LCD20:      lda     PCLSAVE                   ; get PC
-            ldx     PCHSAVE
-            sta     PCL                       ; set it as current address
-            stx     PCH
-            jsr     DBLSPACE                  ; output two SPACE Characters
-            jsr     LC4CB                     ;
-            jsr     ILOPCD                    ; disassemble next opcode 
-;            jsr     LC5C7                     ; disassemble next opcode
-LCD33:      jsr     GETIN                     ; get keyboard key
+LCD20:      lda     PCLSAVE                   ; restore program counter (low byte) into accumulator
+            ldx     PCHSAVE                   ; restore program counter (high byte) into X register
+            sta     PCL                       ; set program counter to current address (low byte)
+            stx     PCH                       ; set program counter to current address (high byte)
+            jsr     SPACE                     ; output a SPACE character
+            lda     SRSAVE                    ; load processor status flag register into accumulator
+            jsr     FLG2BIN                   ; output processor flag binary string
+            jsr     DBLSPACE                  ; output two SPACE characters
+            jsr     LC4CB                     ; disassemble 6502 opcodes
+            jsr     ILOPCD                    ; disassemble 6502 illegal opcodes 
+LCD33:      jsr     GETIN                     ; get next byte from input (kernal subroutine)
             beq     LCD33                     ; wait until we have something
             cmp     #$4A                      ; was it 'J'?
             bne     LCD46                     ; jump if not
             lda     #$01
-            sta     $02BC
+            sta     TRACEBUF+4                ; $02BC trace buffer memory address
             bne     LCD72                     ; take next TW step
-LCD43:      dec     $02BF
+LCD43:      dec     TRACEBUF+7                ; $02BF trace buffer memory address
 LCD46:      lda     $91                       ; get "STOP" flag
             cmp     #$7F                      ; is it set?
             bne     LCD72                     ; if not, take next TW step
@@ -2000,14 +2018,14 @@ LCD4F:      jsr     LCDF2
 LCD56:      jsr     LCDF2
             php
             pla
-            sta     SRSAVE
+            sta     SRSAVE                    ; store processor status flag register
             lda     #$80
-LCD60:      sta     $02BC
+LCD60:      sta     TRACEBUF+4                ; $02BC trace buffer memory address
             tsx
-            stx     SPSAVE
+            stx     SPSAVE                    ; store stack pointer
             jsr     GETSTART
             jsr     LCC65
-            lda     $02BC
+            lda     TRACEBUF+4                ; $02BC trace buffer memory address
             beq     LCDA9
 LCD72:      .if UART_TYPE==6522               ; if VIA is also used as UART
               lda     VIA_IER                 ; get enabled VIA interrupts
@@ -2027,38 +2045,38 @@ LCD72:      .if UART_TYPE==6522               ; if VIA is also used as UART
             stx     VIA_T1CH                  ; set VIA timer 1 high-order counter (start timer)
             lda     #<TWINT                   ; (2)
             ldx     #>TWINT                   ; (2)
-            sta     $02BB                     ; (4)
-            stx     $02BA                     ; (4)
-LCDA9:      ldx     SPSAVE                    ; (4)
+            sta     TRACEBUF+3                ; (4) $02BB trace buffer memory address
+            stx     TRACEBUF+2                ; (4) $02BA trace buffer memory address
+LCDA9:      ldx     SPSAVE                    ; (4) load stack pointer into X register
             txs                               ; (2)
             cli                               ; (2)
-            lda     $02BB                     ; (4)
-            ldx     $02BA                     ; (4)
+            lda     TRACEBUF+3                ; (4) $02BB trace buffer memory address
+            ldx     TRACEBUF+2                ; (4) $02BA trace buffer memory address
             sta     IRQ_LO                    ; (4)
             stx     IRQ_HI                    ; (4)
-LCDBA:      lda     PCHSAVE                   ; (4)
+LCDBA:      lda     PCHSAVE                   ; (4) load program counter (high byte) into accumulator
             pha                               ; (3)
-            lda     PCLSAVE                   ; (4)
+            lda     PCLSAVE                   ; (4) load program counter (low byte) into accumulator
             pha                               ; (3)
-            lda     SRSAVE                    ; (4)
+            lda     SRSAVE                    ; (4) load processor status flag register into accumulator
             pha                               ; (3)
-            lda     AKSAVE                    ; (4)
-            ldx     XRSAVE                    ; (4)
-            ldy     YRSAVE                    ; (4)
+            lda     AKSAVE                    ; (4) restore accumulator
+            ldx     XRSAVE                    ; (4) restore X register
+            ldy     YRSAVE                    ; (4) restore Y register
             rti                               ; (6) => total 75 cycles, timer expires during RTI?
 
 ;; TRACE BREAK (TB)
 LCDD0:      jsr     GETBYT
-            sta     $02BE
+            sta     TRACEBUF+6                ; $02BE trace buffer memory address
             jsr     GETBYT
-            sta     $02BD
+            sta     TRACEBUF+5                ; $02BD trace buffer memory address
             jsr     GETBYT
-            sta     $02BF
+            sta     TRACEBUF+7                ; $02BF trace buffer memory address
             jmp     EXECUTE                   ; back to main loop (resets stack)
 
 ;; restore IRQ vector
-LCDE5:      lda     TRACEBUF
-            ldx     $02B9
+LCDE5:      lda     TRACEBUF                  ; $02B8 trace buffer memory address
+            ldx     TRACEBUF+1                ; $02B9 trace buffer memory address
             sta     IRQ_LO
             stx     IRQ_HI
             rts
@@ -2066,8 +2084,8 @@ LCDE5:      lda     TRACEBUF
 ;; save IRQ vector and set BRK vector to entry point
 LCDF2:      lda     IRQ_LO
             ldx     IRQ_HI
-            sta     TRACEBUF
-            stx     $02B9
+            sta     TRACEBUF                  ; $02B8 trace buffer memory address
+            stx     TRACEBUF+1                ; $02B9 trace buffer memory address
             lda     #<TWINT
             sta     BRK_LO
             lda     #>TWINT
@@ -2075,7 +2093,7 @@ LCDF2:      lda     IRQ_LO
             rts
 
 ;; EXIT SMON (X)        
-EXIT:       jsr     RETURN                    ; Output CR Character 
+EXIT:       jsr     RETURN                    ; output ASCII carriage return (CR)
             jmp     UAEXIT                    ; exit subroutine in seperate chipset asm file
 
 
