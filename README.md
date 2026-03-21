@@ -146,7 +146,7 @@ SMON also allows you to single-step through code using the `tw` (trace walk) com
  2003 21 E9 03 FF FF  00100001   BNE 2002
 
   PC  SR AC XR YR SP  NV-BDIZC
-;2003 21 E9 04 FF FF  00100001
+;2003 21 E9 03 FF FF  00100001
 ```
 
 After entering the `tw` command, SMON executes the first opcode and stops after
