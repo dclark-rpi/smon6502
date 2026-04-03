@@ -2123,7 +2123,7 @@ EXIT:       jsr     RETURN                    ; output ASCII carriage return (CR
             jmp     UAEXIT                    ; exit subroutine in seperate chipset asm file
 
 
-;; print 16-bit integer in $A0/$A1 as decimal value, adapted from:
+;; print 16-bit integer in $A2/$A3 as decimal value, adapted from:
 ;; https://beebwiki.mdfs.net/Number_output_in_6502_machine_code#16-bit_decimal
 
 PRPOW:      .word 1, 10, 100, 1000, 10000
