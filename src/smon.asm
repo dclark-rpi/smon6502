@@ -35,6 +35,8 @@
 
 ;; zero-page addresses
 
+DIGIT       := $A0                            ; stores number of decimal places to printout
+PAD         := $A1                            ; stores decimal conversion padding ASCII character        
 HEXHB       := $A2                            ; hex high byte for number conversion
 HEXLB       := $A3                            ; hex low byte for number conversion
 ADRBUF      := $A4                            ; Address buffer $A4 to $A9 (3 memory locations)
@@ -2124,10 +2126,19 @@ EXIT:       jsr     RETURN                    ; output ASCII carriage return (CR
 ;; print 16-bit integer in $A0/$A1 as decimal value, adapted from:
 ;; https://beebwiki.mdfs.net/Number_output_in_6502_machine_code#16-bit_decimal
 
-PAD         := '0'                            ; padding ASCII character for 16Bit decimal conversion
 PRPOW:      .word 1, 10, 100, 1000, 10000
 
-DEC16LP :   ldy     #8                        ; offset to powers of ten, 8 = 5 digits
+DEC16LP :   ldy     #8                        ; offset to powers of ten
+            ldx     #$20                      ; lead padding either $20 (SPACE) or $30 (ZERO)
+            stx     PAD                       ; padding to print before decimal number
+            ldx     #5                        ; number of decimal places to output
+            stx     DIGIT                     ; stores number of decimal places
+            lda     HEXHB                     ; load high byte to check for zero
+            cmp     #$00                      ; compare if high byte is zero
+            bne     DEC16LP1                  ; if not zero jump to decimal conversion
+            lda     HEXLB                     ; load low byte to check for zero
+            cmp     #$00                      ; compare if low byte is zero
+            beq     ZERODIGIT                 ; if hex byte is zero jump to output a zero
 DEC16LP1:   ldx     #$FF
             sec                               ; set carry, start with digit=-1
 DEC16LP2:   lda     HEXLB
@@ -2149,14 +2160,24 @@ DEC16LP2:   lda     HEXLB
             lda     PAD
             bne     DEC16PRNT
             beq     DEC16NEXT                 ; pad <> 0, add 0
-DEC16DIGIT: ldx     #'0'                      ; ASCII character to pad decimal number
+DEC16DIGIT: ldx     #$30                      ; ASCII zero character to pad after decimal number
             stx     PAD                       ; change padding to print ASCII Zero
-            ora     #'0'                      ; convert to 0-9 digit
+            ora     #$30                      ; convert from decimal to 0-9 ASCII
 DEC16PRNT:  jsr     CHROUT                    ; output character
 DEC16NEXT:  dey
             dey
-            bpl     DEC16LP1                  ; Loop for next digit
-            rts
+            bpl     DEC16LP1                  ; loop for next digit
+            bne     DEC16EXIT                 ; exit if last digit is not zero
+ZERODIGIT:  ldx     DIGIT                     ; number of digits to print                              
+            dex                               ; sets number of times to print padding
+ZEROLOOP:   lda     PAD                       ; load padding character to print
+            jsr     CHROUT                    ; output padding
+            dex                               ; decrement number of digits still to print
+            cpx     #0                        ; compare X register to zero for loop to work
+            bne     ZEROLOOP                  ; loop if X register is not zero else continue
+ZEROPRT:    lda     #$30                      ; print a zero ASCII character
+            jsr     DEC16PRNT                 ; output character
+DEC16EXIT:  rts
 
 ;;; ----------------------------------------------------------------------------
 ;;; ---------------------------  C64 KERNAL routines   -------------------------
