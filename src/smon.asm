@@ -35,7 +35,7 @@
 
 ;; zero-page addresses
 
-DIGIT       := $A0                            ; stores number of decimal places to printout
+DIGIT       := $A0                            ; stores number of decimal digits to printout
 PAD         := $A1                            ; stores decimal conversion padding ASCII character        
 HEXHB       := $A2                            ; hex high byte for number conversion
 HEXLB       := $A3                            ; hex low byte for number conversion
@@ -2128,17 +2128,24 @@ EXIT:       jsr     RETURN                    ; output ASCII carriage return (CR
 
 PRPOW:      .word 1, 10, 100, 1000, 10000
 
-DEC16LP :   ldy     #8                        ; offset to powers of ten
+DEC16LP :   ldx     #5                        ; number of decimal digits to output
+            stx     DIGIT                     ; stores number of decimal digits
+            clc                               ; clear carry flag for addition
+            lda     DIGIT                     ; load number of decemial digits to include
+            adc     DIGIT                     ; add same number again to multiply by 2
+            sec                               ; set carry to 1 for subtraction
+            sbc     #$02                      ; subtract 2 from accumulator
+            tay                               ; move accumulator result to Y register, Y=(DIGIT)*2-2
             ldx     #$20                      ; lead padding either $20 (SPACE) or $30 (ZERO)
             stx     PAD                       ; padding to print before decimal number
-            ldx     #5                        ; number of decimal places to output
-            stx     DIGIT                     ; stores number of decimal places
+            cpx     #$30                      ; compare X register with ASCII zero
+            beq     DEC16LP1                  ; if PAD is ASCII zero then jump to decimal routine
             lda     HEXHB                     ; load high byte to check for zero
             cmp     #$00                      ; compare if high byte is zero
             bne     DEC16LP1                  ; if not zero jump to decimal conversion
             lda     HEXLB                     ; load low byte to check for zero
             cmp     #$00                      ; compare if low byte is zero
-            beq     ZERODIGIT                 ; if hex byte is zero jump to output a zero
+            beq     ZERODIGIT                 ; if hex byte is zero jump to output a zero with SPACES
 DEC16LP1:   ldx     #$FF
             sec                               ; set carry, start with digit=-1
 DEC16LP2:   lda     HEXLB
