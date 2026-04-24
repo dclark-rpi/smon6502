@@ -36,13 +36,13 @@ Cx1CTRL    := $10        ; VIA PCR CB1 control bit (input edge control)
 Cx2CTRL    := $20        ; VIA PCR CB2 control bit (output value control)
 Cx1FLAG    := $10        ; VIA IER CB1 interrupt enable bit
 DDRxREG    := VIA_DDRB   ; VIA DDRB register
-DRxREG     := VIA_DRB    ; VIA DRB register
+DRxREG     := VIA_PB     ; VIA Port B Register
  .else
 Cx1CTRL    := $01        ; VIA PCR CA1 control bit (input edge control)
 Cx2CTRL    := $02        ; VIA PCR CA2 control bit (output value control)
 Cx1FLAG    := $02        ; VIA IER CA1 interrupt enable bit
 DDRxREG    := VIA_DDRA   ; VIA DDRA register
-DRxREG     := VIA_DRA    ; VIA DRA register
+DRxREG     := VIA_PA1    ; VIA Port A Register
  .endif
  
  .if DATABIT != 0 && DATABIT != 7
@@ -72,6 +72,27 @@ RXBUFEND   := $029B	; index to Rx buffer end
 RXBUFSTART := $029C	; index to Rx buffer start
 TXBUFSTART := $029D	; index to Tx buffer start
 TXBUFEND   := $029E	; index to Tx buffer end
+
+; 6522 VIA
+;VIA             := $FFD0        ; VIA base address - set in config.asm because it doesn't work if included here.
+VIA_PB          := VIA+$0       ; Port register B
+VIA_PA1         := VIA+$1       ; Port register A
+VIA_PRB         := VIA+$0       ; *** Deprecated ***
+VIA_PRA         := VIA+$1       ; *** Deprecated ***
+VIA_DDRB        := VIA+$2       ; Data direction register B
+VIA_DDRA        := VIA+$3       ; Data direction register A
+VIA_T1CL        := VIA+$4       ; Timer 1, low byte
+VIA_T1CH        := VIA+$5       ; Timer 1, high byte
+VIA_T1LL        := VIA+$6       ; Timer 1 latch, low byte
+VIA_T1LH        := VIA+$7       ; Timer 1 latch, high byte
+VIA_T2CL        := VIA+$8       ; Timer 2, low byte
+VIA_T2CH        := VIA+$9       ; Timer 2, high byte
+VIA_SR          := VIA+$A       ; Shift register
+VIA_CR          := VIA+$B       ; Auxiliary control register
+VIA_PCR         := VIA+$C       ; Peripheral control register
+VIA_IFR         := VIA+$D       ; Interrupt flag register
+VIA_IER         := VIA+$E       ; Interrupt enable register
+VIA_PA2         := VIA+$F       ; Port register A w/o handshake
 
  .if VIA==0
    .err "Need VIA to use VIA UART"
