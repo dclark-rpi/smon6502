@@ -230,7 +230,7 @@ do the following:
 Then just burn the generated smon.bin file to the EEPROM using whichever programmer
 you have been using.
 
-If you are using rumbledethumps [RP6502 Picocomputer](https://picocomputer.github.io), then I have included the sdk build environment that I used that, I adapted the one provided by [Kai Wells](https://github.com/quells/wozmon.rp6502), that was used for his wozmon port.
+If you are using rumbledethumps [RP6502 Picocomputer](https://picocomputer.github.io), then I have included the sdk build environment that I used. I adapted the one provided by [Kai Wells](https://github.com/quells/wozmon.rp6502), that was used for his wozmon port.
 
  1. Download the `*.asm` files from this repository (there are only 7)
   2. Download the VASM compiler ([vasm6502_oldstyle_Win64.zip](http://sun.hasenbraten.de/vasm/bin/rel/vasm6502_oldstyle_Win64.zip)).
