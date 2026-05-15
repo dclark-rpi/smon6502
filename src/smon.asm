@@ -38,8 +38,8 @@
 
 DIGIT       := $A4                            ; stores number of decimal digits to printout
 PAD         := $A5                            ; stores decimal conversion padding ASCII character        
-HEXLB       := $A6                            ; hex low byte for number conversion  little-endian
-HEXHB       := $A7                            ; hex high byte for number conversion little-endian
+HEXLB       := $A6                            ; hex low byte for number conversion,  little-endian
+HEXHB       := $A7                            ; hex high byte for number conversion, little-endian
 ;; above zero page addresses shares ADRBUF allocation.
 ADRBUF      := $A4                            ; Address buffer $A4 to $A9 (3 memory locations)
 BINARYNUM   := $AA                            ; store hex number to convert into binary
@@ -50,24 +50,30 @@ LOPER       := $AE                            ; Low operand for assembler/disass
 HOPER       := $AF                            ; High operand for assembler/disassembler.
 NUMCMDS     := $B1                            ; Hex number of SMON commands in table
 BEFLEN      := $B6                            ; Instruction length for assembler/disassembler.
+KDBBUFNUM   := $C6                            ; number of characters currently in the keyboard buffer
+
 ;; $FB to $FE are used as commandline argument pointers for subroutines or user programs
-PCH         := $FB                            ; commandline argument 1 (high byte) big-endian
-PCL         := $FC                            ; commandline argument 1 (low byte)  big-endian
-ECH         := $FD                            ; commandline argument 2 (high byte) big-endian
-ECL         := $FE                            ; commandline argument 2 (low byte)  big-endian
+PCH         := $FB                            ; commandline argument 1 (high byte), big-endian
+PCL         := $FC                            ; commandline argument 1 (low byte),  big-endian
+ECH         := $FD                            ; commandline argument 2 (high byte), big-endian
+ECL         := $FE                            ; commandline argument 2 (low byte),  big-endian
 
 ;; Outside the zero page, SMON uses the following areas:
 
+;; KERNAL variables (0200-03FF)
+KDBBUFINDEX := $0276                          ; index or position in keyboard buffer pointer
+KBDBUF      := $0277                          ; buffer for keyboard commands from $0277 to $0280
+COLOUR      := $0286                          ; character colour
+
 ;; Processor registers temporary storage:
-PCLSAVE     := $02A8                          ; Program Counter (low byte)
-PCHSAVE     := $02A9                          ; Program Counter (high byte)
+PCLSAVE     := $02A8                          ; Program Counter (low byte),  little-endian
+PCHSAVE     := $02A9                          ; Program Counter (high byte), little-endian
 SRSAVE      := $02AA                          ; Processor Status Flag Register
 AKSAVE      := $02AB                          ; Accumulator
 XRSAVE      := $02AC                          ; Index Register X
 YRSAVE      := $02AD                          ; Index Register Y
 SPSAVE      := $02AE                          ; Stack Pointer
 
-KBDBUF      := $0277                          ; Buffer for keyboard commands
 IONO        := $02B0                          ; Device-Number
 MEM         := $02B1                          ; Buffer from $02B1 to $02B7
 TRACEBUF    := $02B8                          ; Buffer for trace mode from $02B8 to $02BF   
@@ -102,6 +108,8 @@ PLUS        := $2B                            ; plus                  +
 COMMA       := $2C                            ; comma                 ,
 MINUS       := $2D                            ; minus or hyphen       -
 PERIOD      := $2E                            ; period or dot         .
+ZERO        := $30                            ; zero                  0
+ONE         := $31                            ; one                   1
 COLON       := $3A                            ; colon                 :
 SEMI        := $3B                            ; semicolon             ;
 QUEST       := $3F                            ; question mark         ?
@@ -168,7 +176,7 @@ CMDS:       .byte   <(TICK-1),>(TICK-1)             ; '
             .byte   <(EDITMEM-1),>(EDITMEM-1)       ; :     
             .byte   <(EDITREG-1),>(EDITREG-1)       ; ; 
             .byte   <(EQUALS-1),>(EQUALS-1)         ; =
-            .byte   <(ADDSUB-1),>(ADDSUB-1)         ; ?
+            .byte   <(CALCULATE-1),>(CALCULATE-1)   ; ?
             .byte   <(ASSEMBLER-1),>(ASSEMBLER-1)   ; A
             .byte   <(CONVERT-1),>(CONVERT-1)       ; C
             .byte   <(DISASS-1),>(DISASS-1)         ; D
@@ -202,9 +210,13 @@ FSFLAG:     .byte   $80,$20,$40,$10,$00
 ;; "find" sub-command data length (2=word,1=byte,0=none)
 FSFLAG1:    .byte   $02,$01,$01,$02,$00      
 
+MSMSG1:     .byte   $20,"MEMORY SIZE",$00
+MSMSG2:     .byte   $20,"-",$20,$00
+MSMSG3:     .byte   $20,"BYTES FREE",$00
+MSMSG4:     .byte   $20,$20,$20,$20,$20,$20,$20,"TOTAL",$00
 REGHDR:     .byte   $0D,$0D,$20,$20,"PC  SR AC XR YR SP  NV-BDIZC",$00
 DEBUGHDR:   .byte   $0D,$0D,$20,$20,"PC   MACHINE",$00
-TRACEHDR:   .byte   $20,$20,$20,"OPC  ADR",$00
+TRACEHDR:   .byte   $20,$20,$20,$20,"OPC  ADR",$00
 LC0AC:      .byte   $00,$02,$04
 LC0AF:      .byte   $01,$2C,$00
 LC0B2:      .byte   $2C,$59,$29
@@ -301,7 +313,7 @@ GETADRSE:   jsr     GETADR                    ; get memory address from commandl
             jsr     GETRETURN                 ; is there more commandline input?
             bne     GETADRX                   ; yes, get another memory address
             sta     KBDBUF                    ; put NUL into keyboard buffer
-            inc     $C6
+            inc     KDBBUFNUM                 ; character count in keyboard buffer
             rts
 
 ;; get two words from commandline, store in $FB/$FC and $FD/$FE
@@ -352,13 +364,13 @@ ASCHEX2:    and     #$0F
 SKIPSPACE:  jsr     GETCHRET                  ; get next character until a carriage return
             cmp     #SP                       ; is character byte a space " "
             beq     SKIPSPACE
-            dec     $D3
+            dec     CSRCOL                    ; kernal - current cursor column pointer
             rts
 
 ;; peek whether next character on commandline is CR (Z set if so)
 GETRETURN:  jsr     CHRIN
-            dec     $D3
-            cmp     #$0D
+            dec     CSRCOL                    ; kernal - current cursor column pointer
+            cmp     #CR                       ; is character byte a carriage return (CR)
 GETBRTS:    rts
 
 ;; convert character in A to uppercase
@@ -372,7 +384,7 @@ UCASE1:     rts
 ;; get next character from commandline, error if CR (end of line)
 GETCHRET:   jsr     CHRIN
             jsr     UCASE
-GETCL1:     cmp     #$0D
+GETCL1:     cmp     #CR                       ; is character byte a carriage return (CR)
             bne     GETBRTS
 
 ;; invalid input
@@ -383,11 +395,11 @@ ERROR:      lda     #QUEST                    ; print "?"
 EXECUTE:    ldx     SPSAVE                    ; restore stack pointer                
             txs
             ldx     #$00                      ; clear keyboard buffer
-            stx     $C6
-            lda     $D3                       ; get cursor column
+            stx     KDBBUFNUM                 ; character count in keyboard buffer
+            lda     CSRCOL                    ; kernal - current cursor column pointer
             beq     SKIPCR                    ; jump if zero
             jsr     RETURN                    ; output ASCII carriage return (CR)
-SKIPCR:     lda     ($D1,x)                   ; get first character of next line
+SKIPCR:     lda     (LINEPTR,x)               ; kernal - get first character of next line
             ldx     #$06                      ; compare to known line start characters: ':;,()!
 CHKCMD:     cmp     CMDTAB,x                  ; check for line start command
             beq     EXEC1                     ; if found, execute command
@@ -450,19 +462,22 @@ HEXOUT3:    adc     #$30                      ; add $30
 BIN8BIT:    sta     BINARYNUM                 ; store hex number to convert to 8-bit binary string
             lda     #SP                       ; load accumulator with a space character byte " "
             ldy     #$09                      ; number of binary digits to display plus one
-BIN2STR:    jsr     CHROUT                    ; display binary digit routine
+BIN2STR:    jsr     CHROUT                    ; display binary digit
             asl     BINARYNUM                 ; shift left one bit in variable
-            lda     #$30                      
-            adc     #$00
+            lda     #ZERO                     ; load accumulator with a zero ASCII character
+            adc     #$00                      ; add hex zero to number in accumulator
             dey                               ; decrement Y register
             bne     BIN2STR                   ; loop until Y register is zero
             rts
 
 ;; output 16-bit binary string
-BIN16BIT:   lda     HEXHB                     ; load high byte hex number to convert
+BIN16BIT:   lda     HEXLB                     ; load low byte hex number to convert
             jsr     BIN8BIT                   ; convert to 8-bit binary and output string
-            lda     HEXLB                     ; load low byte hex number to convert
+            lda     HEXHB                     ; load high byte hex number to convert
             jmp     BIN8BIT                   ; convert to 8-bit binary and output string
+
+;; output three SPACE characters
+TRPLSPACE:  jsr     SPACE                     ; loop to output third space character
 
 ;; output two SPACE characters
 DBLSPACE:   jsr     SPACE                     ; loop to ouput second space character
@@ -483,6 +498,20 @@ XROUT:      txa                               ; get value from X register
 ;; output CR, followed by character in X
 CHARRTN:    jsr     RETURN                    ; move pointer to next line
             jmp     XROUT                     ; output ASCII character in X register
+
+;; memory routine free byte message
+MSMESSAGE1: ldy     #>MSMSG1                  ; memory size string
+            lda     #<MSMSG1
+            jmp     STROUT                    ; output string to display
+MSMESSAGE2: ldy     #>MSMSG2                  ; to string
+            lda     #<MSMSG2
+            jmp     STROUT                    ; output string to display
+MSMESSAGE3: ldy     #>MSMSG3                  ; bytes free string
+            lda     #<MSMSG3
+            jmp     STROUT                    ; output string to display
+MSMESSAGE4: ldy     #>MSMSG4                  ; total string
+            lda     #<MSMSG4
+            jmp     STROUT                    ; output string to display
 
 ;; output header for processor registers
 REGHEADER:  ldy     #>REGHDR                  ; processor registers legend string
@@ -532,7 +561,7 @@ HLPL1:      jsr     RETURN                    ; output ASCII carriage return (CR
             bne     HLPL2                     ; jump if not
             lda     #SP                       ; load accumulator with a space character byte " "
             sta     KBDBUF                    ; load " " byte into keyboard buffer (to pause output)
-            inc     $C6
+            inc     KDBBUFNUM                 ; character count in keyboard buffer
 HLPL2:      jsr     KBDKEY                    ; check for PAUSE,STOP from commandline
             lda     ($BB),y                   ; get first byte of next string
             bne     HLPL1                     ; loop if not 0
@@ -697,7 +726,7 @@ MEMDUMP:    jsr     GETCHRET                  ; get next character until a carri
             jmp     MEMTST
 MD1:        cmp     #'S'
             bne     MD2
-            jmp     MEMSIZ
+            jmp     MEMSIZE1
 MD2:        cmp     #SP                       ; is character byte a space " "
             bne     MEMERR
 MD3:        jsr     GETADRSE                  ; get start (FB/FC) and end address (FD/FE)
@@ -751,7 +780,7 @@ OCCUPY:     jsr     GETDW                     ; get address range
                                               ; the full address range
             jsr     CHRIN                     ; get byte from commandline
             jsr     UCASE                     ; change fetched byte to uppercase, if a letter
-            cmp     #$0D                      ; compare CR with commandline data byte
+            cmp     #CR                       ; compare CR with commandline data byte
             beq     MEM_ZERO                  ; if CR then branch to erase with zero's subroutine
             jsr     GETBYT                    ; get next commandline byte from subroutine
             pha
@@ -812,7 +841,7 @@ KBDKEY1:    jsr     SCANKEY                   ; check for STOP or keypress
             cmp     #SP                       ; is character byte a space " "
             bne     KBDRTS                    ; no => done
             sta     KBDBUF                    ; put SPACE in keyboard buffer
-            inc     $C6                       ; (i.e. advance just one line)
+            inc     KDBBUFNUM                 ; (i.e. advance just one line)
 KBDRTS:     rts
 
 ;; check for STOP or other keypress
@@ -921,7 +950,7 @@ LC564:      jsr     LC58C
             bne     LC586
             nop
 LC576:      jsr     RETURN                    ; output ASCII carriage return (CR)
-            ldx     #$23
+            ldx     #$21                      ; amount of bounding line chars
             lda     #MINUS                    ; load accumulator with minus character byte "-"
 LC580:      jsr     CHROUT                    ; output a minus character "-"
             dex
@@ -947,16 +976,17 @@ LC5A0:      lda     (PCH),y                   ; get data byte
             sbc     BEFLEN
             tax
             beq     SPCOC
-LC5B5:      jsr     DBLSPACE                  ; output two SPACE Characters
+LC5B5:      jsr     TRPLSPACE                 ; output three SPACE Characters
             dex
             bne     LC5B5
-SPCOC:      jmp     ILOPCD                   ; output illegal opcode
+SPCOC:      jmp     ILOPCD                    ; output illegal opcode
             .byte   $D2
             .byte   $FF
             ldy     #$00
             ldx     BEFCODE
 LC5C7:      bne     LC5DA
 LC5C9:      ldx     #$03
+            jsr     SPACE                     ; output a single space character
 LC5CB:      lda     #AST
             jsr     CHROUT
             dex
@@ -987,20 +1017,22 @@ LC5DA:      bit     BINARYNUM
             ldy     BEFLEN
             jsr     LC693
             jsr     LC4CB
-LC607:      lda     OPMN1-1,x
+LC607:      jsr     SPACE                     ; output a single space character
+            lda     OPMN1-1,x
             jsr     CHROUT
             lda     OPMN2-1,x
             jsr     CHROUT
             lda     OPMN3-1,x
 LC616:      jsr     CHROUT
+            jsr     SPACE                     ; output a single space character
             lda     #$20
             bit     ADRCODE
             beq     LC622
-            jsr     DBLSPACE                  ; output two SPACE characters
 LC622:      ldx     #$20
             lda     #$04
             bit     ADRCODE
             beq     LC62C
+            jsr     SPACE                     ; output a single space character
             ldx     #LPAREN
 LC62C:      txa
             jsr     CHROUT
@@ -1027,7 +1059,7 @@ LC657:      lda     LC0AC,y
             beq     LC667
             lda     LC0AF,y
             ldx     LC0B2,y
-            jsr     CHAROUT                     ; output ASCII character in X register
+            jsr     CHAROUT                   ; output ASCII character in X register
 LC667:      dey
             bne     LC657
 LC66A:      lda     BEFLEN
@@ -1038,9 +1070,9 @@ LC66C:      jsr     INCPC                     ; increment program counter
             rts
 
 ;; erase screen buffer to end of line
-LC675:      ldy     $D3
+LC675:      ldy     CSRCOL                    ; kernal - get current cursor column
             lda     #SP                       ; load accumulator with a space character byte " "
-LC679:      sta     ($D1),y
+LC679:      sta     (LINEPTR),y               ; kernal - pointer to screen buffer for current line
             iny
             cpy     #$28
             bcc     LC679
@@ -1103,7 +1135,7 @@ LC6BE:      cpx     #$18
             ldy     #$40
 LC6D0:      rts
 
-; ASSEMBLER (A)
+;; ASSEMBLER (A)
 ASSEMBLER:
             jsr     GETADR                    ; get start address
             sta     ECH
@@ -1115,13 +1147,13 @@ LC6DD:      jsr     LC6E4                     ; get and assemble line
             bpl     LC6DA
         
 LC6E4:      lda     #$00
-            sta     $D3
+            sta     CSRCOL                    ; kernal - get current cursor column
             jsr     SPACE                     ; output SPACE character
             jsr     HEXOUT                    ; output address
             jsr     SPACE                     ; output SPACE character
             jsr     CHRIN                     ; get character
             lda     #$01                      ; set input start column within line
-            sta     $D3
+            sta     CSRCOL                    ; kernal - set current cursor column
             ldx     #$80
             bne     LC701
 
@@ -1141,7 +1173,7 @@ LC711:      jsr     CHRIN
 LC717:      lda     #$00
             sta     MEM
             jsr     LC6A1                     ; get a character (skip " $(,")
-            cmp     #$46                      ; is it "f"?
+            cmp     #$46                      ; is character byte an "F" ?
             bne     LC739                     ; jump if not
 
 ;; disassemble the whole input and exit
@@ -1187,7 +1219,7 @@ LC74E:      ldx     #ECH
 
 ;; read 3 opcode characters and store in $A6-$A9
 LC76A:      jsr     LC6A1                     ; get new character byte
-LC76D:      sta     $A9,x                     ; store character byte
+LC76D:      sta     ADRBUF+5,x                ; store character byte in ($A9)
             cpx     #ECH
             bne     LC777
             lda     #$07
@@ -1197,17 +1229,17 @@ LC777:      inx
             ldx     #$38
 
 ;; find 6502 opcode mnemonic in table
-LC77C:      lda     $A6                       ; get first opcode character
+LC77C:      lda     ADRBUF+2                  ; get first opcode character in ($A6)
             cmp     OPMN1-1,x                 ; find it in table
             beq     LC788                     ; jump if found
 LC783:      dex
             bne     LC77C
             dex
             rts                               ; not found => error exit
-LC788:      lda     $A7                       ; get second opcode character
+LC788:      lda     ADRBUF+3                  ; get second opcode character in ($A7)
             cmp     OPMN2-1,x                 ; compare with expected
             bne     LC783                     ; repeat if no match
-            lda     $A8                       ; get third opcode character
+            lda     ADRBUF+4                  ; get third opcode character in ($A8)
             cmp     OPMN3-1,x                 ; compare with expected
             bne     LC783                     ; repeat if no match
 
@@ -1370,8 +1402,9 @@ LCEEB:      ldx     $02C5
             bne     LCEF6
             jsr     SPACE                     ; output space
             jmp     LC5C9
-LCEF6:      lda     #$2A
-            jsr     CHROUT
+LCEF6:      jsr     SPACE                     ; output a single space character
+            lda     #AST                      ; load asterisk character byte in accumulator
+            jsr     CHROUT                    ; output an asterisk character
             lda     ILOPMN1-1,x
             jsr     CHROUT
             lda     ILOPMN2-1,x
@@ -1381,7 +1414,7 @@ LCEF6:      lda     #$2A
 
         
 ;; HEXADECIMAL ADDITION AND SUBTRACTION (?)
-ADDSUB:     jsr     GETADR
+CALCULATE:  jsr     GETADR
             jsr     GETCHRET                  ; get next character until a carriage return
             eor     #$02
             lsr
@@ -1390,93 +1423,74 @@ ADDSUB:     jsr     GETADR
             jsr     GETADRX
             jsr     RETURN                    ; output ASCII carriage return (CR)
             plp
-            bcs     LC8BA
-            lda     ECH
-            adc     PCH
-            tax
-            lda     ECL
-            adc     PCL
-LC8B7:      sec
-            bcs     LC8C3
-LC8BA:      lda     PCH
-            sbc     ECH
-            tax
-            lda     PCL
-            sbc     ECL
-LC8C3:      tay
-LC8C4:      txa
+            bcs     SUB_16BIT                 ; jump to subtraction routine
+            jsr     ADD_16BIT                 ; jump to addition routine
+            jmp     OUT_16BIT                 ; display answer
 
-;; output 16-bit integer in A/Y as HEX, binary and decimal
-LC8C5:      sta     PCH                       ; commandline input in big-endian high byte
-            sty     PCL                       ; commandline input in big-endian low byte
-            sta     HEXLB                     ; convert hex number to little-endian low byte
-            sty     HEXHB                     ; convert hex number to little-endian high byte
-            php
-            lda     #$00
-            sta     $D3
-            jsr     LC675                     ; erase screen buffer
-            jsr     SPACE                     ; output a single SPACE character
-;            lda     PCL
-;            bne     LC8E8
-;            jsr     DBLSPACE                  ; output two SPACE Characters
-;            lda     PCH
-;            jsr     HEXOUT1
-;            lda     PCH
-;            jsr     BIN8BIT                   ; display hex number as 8-bit binary string
-;            beq     LC8EB
-LC8E8:      jsr     HEXOUT
-            jsr     BIN16BIT                  ; display 16-bit binary string
-LC8EB:      jsr     SPACE                     ; output SPACE Character
-            ldx     #$90
-            lda     $01
-            sta     MEM
-            lda     #$37
-            sta     $01
-            plp
-            ldx     MEM
-            stx     $01
-            jmp     DEC16LP
+;; this addition routine is in big-endian format, then converted to little-endian
+;; 16-bit Addition
+ADD_16BIT:  clc                               ; clear carry flag for addition
+            lda     ECH                       ; second commandline input high byte
+            adc     PCH                       ; first commandline input high byte
+            sta     PCH                       ; store high byte addition answer for HEXOUT
+            sta     HEXHB                     ; store high byte addition answer, little-endian
+            lda     ECL                       ; second commandline input low byte
+            adc     PCL                       ; first commandline input low byte
+            sta     PCL                       ; store low byte addition answer for HEXOUT
+            sta     HEXLB                     ; store low byte addition answer, little-endian
+            rts
+
+;; this subtraction routine is in big-endian format, then converted to little-endian
+;; 16-bit Subtraction
+SUBTRACT:   bcs     ATOY                      ; transfer accumulator to y-register
+SUB_16BIT:  sec                               ; set carry flag for subtraction
+            lda     PCH                       ; first commandline input high byte
+            sbc     ECH                       ; second commandline input high byte
+            sta     PCH                       ; store high byte addition answer for HEXOUT
+            sta     HEXHB                     ; store high byte addition answer, little-endian
+            lda     PCL                       ; first commandline input low byte
+            sbc     ECL                       ; second commandline input low byte
+            sta     PCL                       ; store low byte addition answer for HEXOUT
+            sta     HEXLB                     ; store low byte addition answer, little-endian
+            jmp     OUT_16BIT                 ; display answer
         
 ;; CONVERT HEXADECIMAL ($)
 BEFHEX:     jsr     GETBYT
             tax
-            ldy     CSRCOL                    ; kernal current cursor column
-            lda     (LINEPTR),y               ; kernal screen buffer line pointer to current line
-            eor     #$20
-            beq     LC8B7
+            eor     #$20                      ; change to uppercase
+            beq     SUBTRACT
             txa
             tay
             jsr     GETBYT1
-LC919:      sec
-            bcs     LC8C5
+            jmp     OUT_SAVE                  ; output 16-bit integer as hex, binary and decimal
 
 ;; CONVERT BINARY (%)
-BEFBIN:     jsr     SKIPSPACE
-            ldy     #$08
-LC921:      pha
+BEFBIN:     jsr     SKIPSPACE                 ; get input, skip any spaces on commandline
+            ldy     #$08                      ; number of binary bits to display either $08 or $10
+BIN_CONV:   pha                               ; push accumulator onto stack
             jsr     GETCHRET                  ; get next character until a carriage return
-            cmp     #$31
-            pla
-            rol
-            dey
-            bne     LC921
-            beq     LC919
+            cmp     #ONE                      ; compare accumulator with ASCII one
+            pla                               ; pull accumulator from stack
+            rol                               ; rotate one bit left in accumulator
+            dey                               ; decrement number of bits still to output by 1
+            bne     BIN_CONV                  ; if Y register is not zero loop routine
+            beq     OUT_SAVE                  ; if Y register is zero then jump to output routine
 
 ;; CONVERT DECIMAL (#)
 BEFDEC:     jsr     SKIPSPACE
             ldx     #$00
             txa
-LC934:      stx     PCH
+DEC_START:  stx     PCH
             sta     PCL
             tay
             jsr     CHRIN
             cmp     #COLON                    ; is character byte a ":"
-            bcs     LC8C4
+            bcs     XTOA                      ; transfer x-register to accumulator and output
             sbc     #$2F
-            bcs     LC948
+            bcs     DEC_CONV
             sec
-            jmp     LC8C4
-LC948:      sta     ECH
+            jmp     XTOA                      ; transfer x-register to accumulator and output
+DEC_CONV:   sta     ECH
             asl     PCH
             rol     PCL
             lda     PCL
@@ -1496,7 +1510,95 @@ LC948:      sta     ECH
             adc     PCL
             plp
             adc     #$00
-            jmp     LC934
+            jmp     DEC_START
+
+;; output 16-bit integer in A/Y as HEX, binary and decimal
+ATOY:       tay                               ; transfer accumulator to y-register
+XTOA:       txa                               ; transfer x-register to accumulator
+OUT_SAVE:   sty     PCL                       ; commandline input low byte,    big-endian
+            sta     PCH                       ; commandline input high byte,   big-endian
+            sty     HEXLB                     ; convert hex number low byte,   little-endian
+            sta     HEXHB                     ; convert hex number high byte,  little-endian
+OUT_16BIT:  php
+            lda     #$00
+            sta     CSRCOL                    ; kernal - current cursor column pointer
+            jsr     LC675                     ; erase screen buffer
+            jsr     SPACE                     ; output a single SPACE character
+            jsr     HEXOUT
+            jsr     BIN16BIT                  ; display 16-bit binary string
+            jsr     SPACE                     ; output SPACE Character
+            ldx     #$90
+            lda     $01
+            sta     MEM
+            lda     #$37
+            sta     $01
+            plp
+            ldx     MEM
+            stx     $01
+            jmp     DEC16PRT
+
+;; print 16-bit integer in $A2/$A3 as decimal value, adapted from:
+;; https://beebwiki.mdfs.net/Number_output_in_6502_machine_code#16-bit_decimal
+
+PRPOW:      .word 1, 10, 100, 1000, 10000
+
+DEC16PRT:   ldx     #5                        ; number of decimal digits to output
+            stx     DIGIT                     ; stores number of decimal digits
+            clc                               ; clear carry flag for addition
+            lda     DIGIT                     ; load number of decemial digits to include
+            adc     DIGIT                     ; add same number again to multiply by 2
+            sec                               ; set carry to 1 for subtraction
+            sbc     #$02                      ; subtract 2 from accumulator
+            tay                               ; move accumulator result to Y register, Y=(DIGIT)*2-2
+            ldx     #SP                       ; lead padding either $20 (SP) or $30 (ZERO)
+            stx     PAD                       ; padding to print before decimal number
+            cpx     #ZERO                     ; compare X register with ASCII zero
+            beq     DEC16LP1                  ; if PAD is ASCII zero then jump to decimal routine
+            lda     HEXLB                     ; load low byte to check for zero
+            cmp     #$00                      ; compare if high byte is zero
+            bne     DEC16LP1                  ; if not zero jump to decimal conversion
+            lda     HEXHB                     ; load high byte to check for zero
+            cmp     #$00                      ; compare if low byte is zero
+            beq     ZERODIGIT                 ; if hex byte is zero jump to output a zero with SPACES
+DEC16LP1:   ldx     #$FF
+            sec                               ; set carry, start with digit=-1
+DEC16LP2:   lda     HEXHB
+            sbc     PRPOW,Y
+            sta     HEXHB                     ; subtract current tens
+            lda     HEXLB
+            sbc     PRPOW+1,Y
+            sta     HEXLB
+            inx
+            bcs     DEC16LP2                  ; loop until < 0
+            lda     HEXHB                     ; add current tens back in
+            adc     PRPOW,Y
+            sta     HEXHB
+            lda     HEXLB
+            adc     PRPOW+1,Y
+            sta     HEXLB
+            txa
+            bne     DEC16DIGIT                ; not leading zero => skip
+            lda     PAD
+            bne     DEC16PRNT
+            beq     DEC16NEXT                 ; pad <> 0, add 0
+DEC16DIGIT: ldx     #ZERO                     ; ASCII zero character to pad after decimal number
+            stx     PAD                       ; change padding to print ASCII Zero
+            ora     #$30                      ; convert from decimal to 0-9 ASCII
+DEC16PRNT:  jsr     CHROUT                    ; output character
+DEC16NEXT:  dey
+            dey
+            bpl     DEC16LP1                  ; loop for next digit
+            bne     DEC16EXIT                 ; exit if last digit is not zero
+ZERODIGIT:  ldx     DIGIT                     ; number of digits to print                              
+            dex                               ; sets number of times to print padding
+ZEROLOOP:   lda     PAD                       ; load padding character to print
+            jsr     CHROUT                    ; output padding
+            dex                               ; decrement number of digits still to print
+            cpx     #0                        ; compare X register to zero for loop to work
+            bne     ZEROLOOP                  ; loop if X register is not zero else continue
+ZEROPRT:    lda     #ZERO                     ; print a zero ASCII character
+            jsr     DEC16PRNT                 ; output character
+DEC16EXIT:  rts
         
 ;; WRITE (W) - move memory
 WRITE:      jsr     GET3ADR
@@ -1789,34 +1891,153 @@ LCBD6:      sta     $B4                       ; temp storage
 LCBF0:      rts
 
 ;; MEMORY SIZE (MS)
-MEMSIZ:     ldx     #3
-MSL1:       ldx     #$01                      ; get 00,01,FF,FF
-            stx     PCL                       ; into FB-FE
-            dex
-            stx     PCH
-            dex
-            stx     ECH
-            stx     ECL
-            jsr     RETURN                    ; output ASCII carriage return (CR)
-            ldx     #$00
-MSL2:       lda     (PCH,x)                   ; save current value
-            tay
-            lda     #$55
-            sta     (PCH,x)
-            cmp     (PCH,x)
-            bne     MSL5
-            lda     #BINARYNUM
-            sta     (PCH,x)
-            cmp     (PCH,x)
-            bne     MSL5
-MSL4:       tya
-            sta     (PCH,x)                   ; restore original value
-            jsr     INCPC                     ; increment program counter
-            jsr     CMPEND1                   ; check if we've tested the whole range
-            bcc     MSL2                      ; repeat if not
-            .byte   $2C                       ; skip following 2-byte opcode
-MSL5:       sta     (PCH,x)
-            jsr     HEXOUT                    ; print current address
+MEMADR1      := $0800                         ; first program memory start address
+MEMADR2      := $8FFF                         ; first program memory end address
+MEMADR3      := $9000                         ; second program memory start address
+MEMADR4      := $DFFF                         ; second program memory end address
+
+;; Start testing first memory range from $0800 up to $7FFF
+MEMSIZE1:   ldy     #$00                      ; clear a temp page 0 byte to store high address
+            sty     $0100                     ; store zero byte into memory counter high byte temp page
+            sty     $0101                     ; store zero byte into memory counter low byte temp page
+
+
+            lda     #<MEMADR1                 ; start memory page high byte
+            sta     $0102                     ; temp storage for current test page
+            jsr     RETURN                    ; move pointer to new line
+            jsr     RETURN                    ; move pointer to new line
+            jsr     MSMESSAGE1                ; memory size message
+
+TEST_LOOP1: lda     $0102                     ; current test page
+            sta     $0103                     ; store in memory-mapped location to test
+
+            lda     $0103                     ; read back to verify
+            cmp     $0102                     ; compare with current test page
+            bne     NO_RAM1                   ; if read != write, RAM ends
+
+            inc     $0100                     ; increment memory counter
+            inc     $0102                     ; increment current test page
+            lda     $0102                     ; read back to verify if complete
+            cmp     #<MEMADR2                 ; stop at 32K ($8000) (high byte)
+            bne     TEST_LOOP1                ; loop until end of RAM is reached
+
+            lda     #>MEMADR1                 ; start memory page low byte
+            sta     $0102                     ; temp storage for current test page
+
+TEST_LOOP2: lda     $0102                     ; current test page
+            sta     $0103                     ; store in memory-mapped location to test
+
+            lda     $0103                     ; read back to verify
+            cmp     $0102                     ; compare with current test page
+            bne     NO_RAM1                   ; if read != write, RAM ends
+
+            inc     $0101                     ; increment memory counter
+            inc     $0102                     ; increment current test page
+            lda     $0102                     ; read back to verify if complete
+            cmp     #>MEMADR2                 ; stop at 4K ($CFFF) (low byte)
+            bne     TEST_LOOP2                ; loop until end of RAM is reached
+
+;; output memory range including free memory
+NO_RAM1:    lda     #<MEMADR1                 ; start memory, high byte             
+            sta     PCH
+            lda     #>MEMADR1                 ; start memory, low byte
+            sta     PCL
+            jsr     RETURN                    ; move pointer to new line
+            jsr     SPACE                     ; output SPACE characters
+            jsr     HEXOUT                    ; output start memory range
+            jsr     MSMESSAGE2                ; hyphen for memory range
+            lda     #<MEMADR2                 ; end memory, high byte
+            sta     PCH
+            lda     #>MEMADR2                 ; end memory, low byte
+            sta     PCL
+            jsr     HEXOUT                    ; output end memory range
+            lda     $0100                     ; highest RAM Page is now in accumulator
+            sta     HEXHB                     ; store result required for decimal conversion
+            sta     MEM                       ; store high byte of free memory, range 1
+            lda     $0101                     ; highest RAM Page is now in accumulator
+            sta     HEXLB                     ; store result required for decimal conversion
+            sta     MEM+1                     ; store low byte of free memory, range 1
+            jsr     DBLSPACE                  ; output two SPACE characters
+            jsr     DEC16PRT                  ; display free memory in decimal
+            jsr     MSMESSAGE3                ; free bytes message
+
+;; Start testing second memory range from $C000 up to $CFFF
+MEMSIZE2:   ldy     #$00                      ; clear a temp page 0 byte to store high address
+            sty     $0100                     ; store zero byte into memory counter high byte temp page
+            sty     $0101                     ; store zero byte into memory counter low byte temp page
+
+            lda     #<MEMADR3                 ; start memory page high byte
+            sta     $0102                     ; temp storage for current test page
+         
+TEST_LOOP3: lda     $0102                     ; current test page
+            sta     $0103                     ; store in memory-mapped location to test
+
+            lda     $0103                     ; read back to verify
+            cmp     $0102                     ; compare with current test page
+            bne     NO_RAM2                   ; if read != write, RAM ends
+
+            inc     $0100                     ; increment memory counter
+            inc     $0102                     ; increment current test page
+            lda     $0102                     ; read back to verify if complete
+            cmp     #<MEMADR4                 ; stop at 4K ($CFFF) (high byte)
+            bne     TEST_LOOP3                ; loop until end of RAM is reached
+
+            lda     #>MEMADR3                 ; start memory page low byte
+            sta     $0102                     ; temp storage for current test page
+
+TEST_LOOP4: lda     $0102                     ; current test page
+            sta     $0103                     ; store in memory-mapped location to test
+
+            lda     $0103                     ; read back to verify
+            cmp     $0102                     ; compare with current test page
+            bne     NO_RAM2                   ; if read != write, RAM ends
+
+            inc     $0101                     ; increment memory counter
+            inc     $0102                     ; increment current test page
+            lda     $0102                     ; read back to verify if complete
+            cmp     #>MEMADR4                 ; stop at 4K ($CFFF) (low byte)
+            bne     TEST_LOOP4                ; loop until end of RAM is reached
+
+;; output memory range including free memory
+NO_RAM2:    lda     #<MEMADR3                 ; start memory, high byte             
+            sta     PCH
+            lda     #>MEMADR3                 ; start memory, low byte
+            sta     PCL
+            jsr     RETURN                    ; move pointer to new line
+            jsr     SPACE                     ; output SPACE characters
+            jsr     HEXOUT                    ; output start memory range
+            jsr     MSMESSAGE2                ; hyphen for memory range
+            lda     #<MEMADR4                 ; end memory, high byte
+            sta     PCH
+            lda     #>MEMADR4                 ; end memory, low byte
+            sta     PCL
+            jsr     HEXOUT                    ; output end memory range
+            lda     $0100                     ; highest RAM Page is now in accumulator
+            sta     HEXHB                     ; store result required for decimal conversion
+            sta     MEM+2                     ; store high byte of free memory, range 2
+            lda     $0101                     ; highest RAM Page is now in accumulator
+            sta     HEXLB                     ; store result required for decimal conversion
+            sta     MEM+3                     ; store low byte of free memory, range 2
+            jsr     DBLSPACE                  ; output two SPACE characters
+            jsr     DEC16PRT                  ; display free memory in decimal
+            jsr     MSMESSAGE3                ; free bytes message
+
+;; calculate and output total free system memory
+            lda     MEM                       ; load high byte of free memory, range 1
+            sta     PCH
+            lda     MEM+1                     ; load low byte of free memory, range 1
+            sta     PCL
+            lda     MEM+2                     ; load high byte of free memory, range 2
+            sta     ECH
+            lda     MEM+3                     ; load low byte of free memory, range 2
+            sta     ECL
+            jsr     RETURN                    ; move pointer to new line
+            jsr     SPACE                     ; output SPACE characters
+            jsr     MSMESSAGE4                ; total message
+            jsr     SPACE                     ; output SPACE characters
+            jsr     ADD_16BIT                 ; calculate total memory
+            jsr     DEC16PRT                  ; display free memory in decimal
+            jsr     MSMESSAGE3                ; free bytes message
             rts                               ; done
         
 ;; MEMORY TEST (MT)
@@ -2133,77 +2354,13 @@ LCDF2:      lda     IRQ_LO
 
 ;; EXIT SMON (X)        
 EXIT:       jsr     RETURN                    ; output ASCII carriage return (CR)
-            jmp     UAEXIT                    ; exit subroutine in seperate chipset asm file
-
-
-;; print 16-bit integer in $A2/$A3 as decimal value, adapted from:
-;; https://beebwiki.mdfs.net/Number_output_in_6502_machine_code#16-bit_decimal
-
-PRPOW:      .word 1, 10, 100, 1000, 10000
-
-DEC16LP :   ldx     #5                        ; number of decimal digits to output
-            stx     DIGIT                     ; stores number of decimal digits
-            clc                               ; clear carry flag for addition
-            lda     DIGIT                     ; load number of decemial digits to include
-            adc     DIGIT                     ; add same number again to multiply by 2
-            sec                               ; set carry to 1 for subtraction
-            sbc     #$02                      ; subtract 2 from accumulator
-            tay                               ; move accumulator result to Y register, Y=(DIGIT)*2-2
-            ldx     #$20                      ; lead padding either $20 (SPACE) or $30 (ZERO)
-            stx     PAD                       ; padding to print before decimal number
-            cpx     #$30                      ; compare X register with ASCII zero
-            beq     DEC16LP1                  ; if PAD is ASCII zero then jump to decimal routine
-            lda     HEXHB                     ; load high byte to check for zero
-            cmp     #$00                      ; compare if high byte is zero
-            bne     DEC16LP1                  ; if not zero jump to decimal conversion
-            lda     HEXLB                     ; load low byte to check for zero
-            cmp     #$00                      ; compare if low byte is zero
-            beq     ZERODIGIT                 ; if hex byte is zero jump to output a zero with SPACES
-DEC16LP1:   ldx     #$FF
-            sec                               ; set carry, start with digit=-1
-DEC16LP2:   lda     HEXLB
-            sbc     PRPOW,Y
-            sta     HEXLB                     ; subtract current tens
-            lda     HEXHB
-            sbc     PRPOW+1,Y
-            sta     HEXHB
-            inx
-            bcs     DEC16LP2                  ; loop until < 0
-            lda     HEXLB                     ; add current tens back in
-            adc     PRPOW,Y
-            sta     HEXLB
-            lda     HEXHB
-            adc     PRPOW+1,Y
-            sta     HEXHB
-            txa
-            bne     DEC16DIGIT                ; not leading zero => skip
-            lda     PAD
-            bne     DEC16PRNT
-            beq     DEC16NEXT                 ; pad <> 0, add 0
-DEC16DIGIT: ldx     #$30                      ; ASCII zero character to pad after decimal number
-            stx     PAD                       ; change padding to print ASCII Zero
-            ora     #$30                      ; convert from decimal to 0-9 ASCII
-DEC16PRNT:  jsr     CHROUT                    ; output character
-DEC16NEXT:  dey
-            dey
-            bpl     DEC16LP1                  ; loop for next digit
-            bne     DEC16EXIT                 ; exit if last digit is not zero
-ZERODIGIT:  ldx     DIGIT                     ; number of digits to print                              
-            dex                               ; sets number of times to print padding
-ZEROLOOP:   lda     PAD                       ; load padding character to print
-            jsr     CHROUT                    ; output padding
-            dex                               ; decrement number of digits still to print
-            cpx     #0                        ; compare X register to zero for loop to work
-            bne     ZEROLOOP                  ; loop if X register is not zero else continue
-ZEROPRT:    lda     #$30                      ; print a zero ASCII character
-            jsr     DEC16PRNT                 ; output character
-DEC16EXIT:  rts
+            jmp     UAEXIT                    ; exit subroutine in seperate uart asm file
 
 ;;; ----------------------------------------------------------------------------
 ;;; ---------------------------  C64 KERNAL routines   -------------------------
 ;;; ----------------------------------------------------------------------------
 
-LINEBUF     := $0400                          ; line ("screen") buffer memory $0400 to $0B7F
+LINEBUF     := $0400                          ; line ("screen") buffer memory $0400 to $07FF
 NUMCOLS     := 80                             ; number of columns per row
 NUMROWS     := 24                             ; number of rows
 INPUT_UCASE := 0                              ; do not automatically convert input to uppercase
