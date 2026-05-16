@@ -63,15 +63,15 @@ in the `config.asm` file (see below).
 At startup, SMON shows the current 6502 processor status, followed by a "." command prompt
 ```
   PC  SR AC XR YR SP  NV-BDIZC
-;E00E B4 E9 00 FF FF  10110100
+;D00E B4 D9 00 FF FF  10110100
 .                             
 ```
 Where "PC" is the program counter, "SR" is the status register, "AC" is the accumulator, "XR" and "YR" are
 the X and Y registers and "SP" is the stack pointer. the "NV-BDIZC" column shows the individual bits
 in the status register.
 
-At the command prompt you can enter commands. For example, entering "m 1000 1020" will show the memory
-content from $1000-$1020:
+At the command prompt you can enter commands. For example, entering "m 1000 1030" will show the memory
+content from $1000-$1030:
 ```
 .m 1000 1030                                                                    
 :1000 00 01 02 03 04 05 06 07  08 09 0A 0B 0C 0D 0E 0F         ........ ........
