@@ -114,7 +114,7 @@ COLON       := $3A                            ; colon                 :
 SEMI        := $3B                            ; semicolon             ;
 QUEST       := $3F                            ; question mark         ?
 
-            .org    $D000
+            .org    $D000                     ; Allows 8KB for SMON before kernal memory at $F000
 
             jsr     RESET                     ; kernel reset vector, resets processor registers 
                                               ; and clears line buffer
@@ -1898,8 +1898,8 @@ MEMADR4      := $CFFF                         ; second program memory end addres
 
 ;; Start testing first memory range from $0800 up to $7FFF
 MEMSIZE1:   ldy     #$01                      ; start high byte temp page at 1 byte to count first byte
-            sty     $0100                     ; store zero byte into memory counter high byte temp page
-            sty     $0101                     ; store zero byte into memory counter low byte temp page
+            sty     $0100                     ; set memory counter high byte temp page
+            sty     $0101                     ; set memory counter low byte temp page
 
 
             lda     #<MEMADR1                 ; start memory page high byte
