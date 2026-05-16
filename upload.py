@@ -3,23 +3,28 @@ import subprocess
 
 # Device path of the Picocomputer serial connection
 tty = '/dev/ttyACM0'
+
+# Name of vasm source to compile
+src_code = 'src/smon.asm'
+
 # Name of the vasm output file
-exe_6502 = 'smon'
-# Name of the RP6502 ROM on host
-exe_rp6502 = 'smon.rp6502'
+bin_6502 = 'smon'
+
 # Name of the RP6502 ROM on Picocomputer
-rom_name = 'smon.rp6502'
-# Start address of the executable - must match .org in src/smon.asm
-address = 0xE000
+rom_rp6502 = 'smon.rp6502'
+
+# Start address of the executable - must match .org in src_code
+address = 0xD000
 
 def compile() -> subprocess.CompletedProcess:
     compile_cmd = [
         'vasm6502_oldstyle',
         '-Fbin',
+        '-esc',
         '-dotdir',
         '-c02',
-        '-o', exe_6502,
-        'src/smon.asm'
+        '-o', bin_6502,
+        'src_code'
     ]
     cp = subprocess.run(compile_cmd)
     if cp.returncode != 0:
@@ -28,10 +33,10 @@ def compile() -> subprocess.CompletedProcess:
 def build_rp6502():
     rom = rp6502.ROM()
     rom.comment('System Monitor')
-    rom.binary_file(exe_6502, address)
+    rom.binary_file(bin_6502, address)
     rom.reset_vector()
 
-    with open(exe_rp6502, 'wb') as o:
+    with open(rom_rp6502, 'wb') as o:
         rom.seek(0)
         while True:
             chunk = rom.read(1024)
@@ -42,7 +47,7 @@ def build_rp6502():
 def upload():
     mon = rp6502.Monitor(tty)
     mon.send_break()
-    with open(exe_rp6502, 'rb') as f:
+    with open(rom_rp6502, 'rb') as f:
         rom = rp6502.ROM()
         mon.upload(rom_name, f)
 
