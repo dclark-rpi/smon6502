@@ -89,10 +89,10 @@ LOADVECT    := $0330                          ; Vector: Kernel LOAD
 SAVEVECT    := $0332                          ; Vector: Kernel SAVE
 
 ;; JMPTABLE starts at kernel address $FF81
-CHRIN       := JMPTABLE+(3*$1A) ; $FFCF       ; Kernal input routine
-CHROUT      := JMPTABLE+(3*$1B) ; $FFD2       ; Kernal output routine
-STOPKEY     := JMPTABLE+(3*$20) ; $FFE1       ; Kernal test STOP routine
-GETIN       := JMPTABLE+(3*$21) ; $FFE4       ; Kernal get input routine
+CHRIN       := JMPTABLE+$4E      ; $FFCF       ; Kernal input routine
+CHROUT      := JMPTABLE+$51      ; $FFD2       ; Kernal output routine
+STOPKEY     := JMPTABLE+$60      ; $FFE1       ; Kernal test STOP routine
+GETIN       := JMPTABLE+$63      ; $FFE4       ; Kernal get input routine
 
 ;; ASCII-Table control codes and characters
 CR          := $0D                            ; carriage return
@@ -114,7 +114,7 @@ COLON       := $3A                            ; colon                 :
 SEMI        := $3B                            ; semicolon             ;
 QUEST       := $3F                            ; question mark         ?
 
-            .org    $E000
+            .org    $D000
 
             jsr     RESET                     ; kernel reset vector, resets processor registers 
                                               ; and clears line buffer
@@ -157,7 +157,7 @@ HLPMSG:     .byte   "A xxxx - Assemble starting at x (end assembly with 'f', use
             .byte   "=xxxx yyyy - compare memory starting at x to memory starting at y",0
             .byte   ":xxxx aa aa - change memory in HEX starting at x with one or more bytes",0
             .byte   "#ddddd - convert DEC to HEX and BIN, max = #65535 (16Bit Num)",0
-            .byte   "$aa(aa) - convert 2-digit or 4-digit HEX to DEC and BIN",0
+            .byte   "$aaaa - convert 4-digit HEX to DEC and BIN",0
             .byte   "%bbbbbbbb - convert BIN to DEC and HEX (b must be a 1 or 0)",0
             .byte   "?aaaa+aaaa - Hexadecimal addition (you must enter two, 4-digit hex numbers)",0
             .byte   "?aaaa-aaaa - Hexadecimal subtraction (you must enter two, 4-digit hex numbers)",0
@@ -183,7 +183,7 @@ CMDS:       .byte   <(TICK-1),>(TICK-1)             ; '
             .byte   <(FIND-1),>(FIND-1)             ; F
             .byte   <(GO-1),>(GO-1)                 ; G
             .byte   <(HELP-1),>(HELP-1)             ; H
-            .byte   <(KONTROLLE-1),>(KONTROLLE-1)   ; K
+            .byte   <(LISTASCII-1),>(LISTASCII-1)   ; K
             .byte   <(LOAD-1),>(LOAD-1)             ; L
             .byte   <(MEMDUMP-1),>(MEMDUMP-1)       ; M
             .byte   <(OCCUPY-1),>(OCCUPY-1)         ; O
@@ -1724,7 +1724,7 @@ LCAAE:      jsr     LC66A
             rts
 
 ;; LISTS ASCII CHARACTERS IN MEMORY (K)
-KONTROLLE:  jsr     GETADRSE
+LISTASCII:  jsr     GETADRSE
 LCABA:      ldx     #$27
             jsr     CHARRTN                   ; New line followed by a character from x
             jsr     HEXOUT                    ; output as 4 digit hex
@@ -1892,12 +1892,12 @@ LCBF0:      rts
 
 ;; MEMORY SIZE (MS)
 MEMADR1      := $0800                         ; first program memory start address
-MEMADR2      := $8FFF                         ; first program memory end address
-MEMADR3      := $9000                         ; second program memory start address
-MEMADR4      := $DFFF                         ; second program memory end address
+MEMADR2      := $7FFF                         ; first program memory end address
+MEMADR3      := $8000                         ; second program memory start address
+MEMADR4      := $CFFF                         ; second program memory end address
 
 ;; Start testing first memory range from $0800 up to $7FFF
-MEMSIZE1:   ldy     #$00                      ; clear a temp page 0 byte to store high address
+MEMSIZE1:   ldy     #$01                      ; start high byte temp page at 1 byte to count first byte
             sty     $0100                     ; store zero byte into memory counter high byte temp page
             sty     $0101                     ; store zero byte into memory counter low byte temp page
 
@@ -1962,7 +1962,7 @@ NO_RAM1:    lda     #<MEMADR1                 ; start memory, high byte
             jsr     MSMESSAGE3                ; free bytes message
 
 ;; Start testing second memory range from $C000 up to $CFFF
-MEMSIZE2:   ldy     #$00                      ; clear a temp page 0 byte to store high address
+MEMSIZE2:   ldy     #$01                      ; start high byte temp page at 1 byte to count first byte
             sty     $0100                     ; store zero byte into memory counter high byte temp page
             sty     $0101                     ; store zero byte into memory counter low byte temp page
 
